@@ -32,6 +32,10 @@ def coletar_alertas(db, empresa_id=None):
         "entregas": q("""SELECT em.*, e.numero AS edital_numero, e.orgao FROM empenhos em JOIN editais e ON e.id=em.edital_id
             WHERE COALESCE(em.data_entrega,'') = '' AND COALESCE(em.prazo_entrega,'') != ''
             AND em.prazo_entrega <= date('now','localtime','+7 days') {F} ORDER BY em.prazo_entrega"""),
+        "devolucoes": q("""SELECT al.*, a.nome AS ativo_nome, a.unidade, e.numero, e.orgao FROM alocacoes al
+            JOIN ativos a ON a.id=al.ativo_id JOIN editais e ON e.id=al.edital_id
+            WHERE COALESCE(al.data_retorno,'') = '' AND COALESCE(al.data_prevista_retorno,'') != ''
+            AND al.data_prevista_retorno <= date('now','localtime','+7 days') {F} ORDER BY al.data_prevista_retorno"""),
     }
 
 
@@ -59,6 +63,9 @@ def montar_html(al):
         ("Garantias vencidas ou vencendo em 30 dias", al["garantias"],
          lambda r: f"{r['numero']} — {r['orgao']}: {r['tipo'] or ''} {r['descricao']} · {_brl(r['valor'])} · "
                    f"fim <b>{_d(r['data_fim'])}</b>"),
+        ("Ativos com retorno previsto vencido ou em até 7 dias", al["devolucoes"],
+         lambda r: f"{r['numero']} — {r['orgao']}: {r['ativo_nome']} ({r['quantidade']:g} {r['unidade'] or ''}) · "
+                   f"retorno previsto <b>{_d(r['data_prevista_retorno'])}</b>"),
         ("Vigências terminando em 60 dias", al["vencendo"],
          lambda r: f"{r['numero']} — {r['orgao']} · vigência até <b>{_d(r['vigencia_fim'])}</b>"),
         ("A receber nos próximos 30 dias", al["proximos"],

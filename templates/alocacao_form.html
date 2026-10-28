@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8"><div class="card p-4">
+ <h5 class="mb-1">{{ 'Alocar ativo em contrato' if novo else 'Editar alocação' }}</h5>
+ <p class="text-muted small mb-4">A quantidade sai do estoque disponível até a devolução ser registrada.</p>
+ <form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="voltar" value="{{ voltar }}">
+  <div class="row g-3">
+   <div class="col-md-6"><label class="form-label">Ativo <span class="text-danger">*</span></label><select name="ativo_id" class="form-select" required>
+    <option value="">—</option>{% for a in ativos %}<option value="{{ a.id }}" {% if a.id|string == valores.get('ativo_id')|string %}selected{% endif %}>{{ a.nome }}{{ (' (' ~ a.codigo ~ ')') if a.codigo }} — disponível {{ a.disponivel|num }} {{ a.unidade or '' }}</option>{% endfor %}</select></div>
+   <div class="col-md-6"><label class="form-label">Contrato / edital <span class="text-danger">*</span></label><select name="edital_id" class="form-select" required>
+    <option value="">—</option>{% for e in editais %}<option value="{{ e.id }}" {% if e.id|string == valores.get('edital_id')|string %}selected{% endif %}>{{ e.numero }} — {{ e.orgao }}</option>{% endfor %}</select></div>
+   <div class="col-md-3"><label class="form-label">Quantidade <span class="text-danger">*</span></label><input name="quantidade" class="form-control text-end" inputmode="decimal" value="{{ valores.get('quantidade') or '' }}" required></div>
+   <div class="col-md-9"><label class="form-label">Local de instalação / entrega</label><input name="local" class="form-control" value="{{ valores.get('local') or '' }}"></div>
+   <div class="col-md-4"><label class="form-label">Data de saída</label><input type="date" name="data_saida" class="form-control" value="{{ valores.get('data_saida') or '' }}"></div>
+   <div class="col-md-4"><label class="form-label">Retorno previsto</label><input type="date" name="data_prevista_retorno" class="form-control" value="{{ valores.get('data_prevista_retorno') or '' }}"></div>
+   <div class="col-md-4"><label class="form-label">Devolvido em</label><input type="date" name="data_retorno" class="form-control" value="{{ valores.get('data_retorno') or '' }}"></div>
+   <div class="col-12"><label class="form-label">Observações</label><input name="observacoes" class="form-control" value="{{ valores.get('observacoes') or '' }}"></div>
+  </div>
+  <div class="mt-4 d-flex gap-2"><button class="btn btn-primary"><i class="bi bi-check-lg"></i> Salvar</button><a href="{{ voltar }}" class="btn btn-outline-secondary">Cancelar</a></div>
+ </form>
+</div></div></div>
+{% endblock %}

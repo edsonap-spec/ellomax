@@ -203,6 +203,30 @@ CREATE TABLE IF NOT EXISTS anexos (
     enviado_por TEXT,
     enviado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS ativos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    empresa_id INTEGER REFERENCES empresas(id),
+    nome TEXT NOT NULL,
+    codigo TEXT,
+    categoria TEXT,
+    unidade TEXT,
+    quantidade_total REAL NOT NULL DEFAULT 0,
+    qtd_manutencao REAL NOT NULL DEFAULT 0,
+    valor_unitario REAL,
+    observacoes TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS alocacoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ativo_id INTEGER NOT NULL REFERENCES ativos(id) ON DELETE CASCADE,
+    edital_id INTEGER NOT NULL REFERENCES editais(id) ON DELETE CASCADE,
+    quantidade REAL NOT NULL,
+    data_saida TEXT,
+    data_prevista_retorno TEXT,
+    data_retorno TEXT,
+    local TEXT,
+    observacoes TEXT
+);
 CREATE TABLE IF NOT EXISTS config (
     chave TEXT PRIMARY KEY,
     valor TEXT
@@ -792,6 +816,9 @@ def carregar_edital(eid):
         "garantias": db.execute("SELECT * FROM garantias WHERE edital_id=? ORDER BY data_inicio, id", (eid,)).fetchall(),
         "aditivos": db.execute("SELECT * FROM aditivos WHERE edital_id=? ORDER BY data_assinatura, id", (eid,)).fetchall(),
         "anexos": db.execute("SELECT * FROM anexos WHERE edital_id=? ORDER BY enviado_em DESC", (eid,)).fetchall(),
+        "alocacoes": db.execute("""SELECT al.*, a.nome AS ativo_nome, a.codigo, a.unidade FROM alocacoes al
+                                   JOIN ativos a ON a.id=al.ativo_id WHERE al.edital_id=?
+                                   ORDER BY al.data_retorno IS NOT NULL, al.data_saida DESC, al.id DESC""", (eid,)).fetchall(),
         "gastos_cat": db.execute("""SELECT COALESCE(categoria,'Sem categoria') AS categoria, SUM(valor) AS total
                                     FROM gastos WHERE edital_id=? GROUP BY 1 ORDER BY 2 DESC""", (eid,)).fetchall(),
         "r": resumo_edital(eid),
@@ -1128,6 +1155,278 @@ def anexo_excluir(eid, aid):
 def muito_grande(_e):
     flash("Arquivo muito grande (limite de 25 MB por envio).", "danger")
     return redirect(request.referrer or url_for("dashboard"))
+
+
+# ---------------------------------------------------------------- estoque de ativos
+
+CAMPOS_ATIVO_BASE = [
+    ("nome", "Nome do ativo", "text", True, None, 6),
+    ("codigo", "Código / patrimônio", "text", False, None, 3),
+    ("categoria", "Categoria", "text", False, None, 3),
+    ("unidade", "Unidade", "text", False, None, 2),
+    ("quantidade_total", "Quantidade total em estoque (próprio)", "number", True, None, 4),
+    ("qtd_manutencao", "Em manutenção / indisponível", "number", False, None, 3),
+    ("valor_unitario", "Valor unitário (R$)", "money", False, None, 3),
+    ("ativo", "Ativo em uso", "check", False, None, 3),
+    ("observacoes", "Observações", "textarea", False, None, 9),
+]
+
+SQL_ESTOQUE = """SELECT a.*, emp.razao_social AS empresa,
+    COALESCE((SELECT SUM(quantidade) FROM alocacoes al WHERE al.ativo_id=a.id AND COALESCE(al.data_retorno,'')=''),0) AS alocado
+    FROM ativos a LEFT JOIN empresas emp ON emp.id=a.empresa_id"""
+
+
+def campos_ativo():
+    emps = [(e["id"], e["razao_social"]) for e in empresas_permitidas()]
+    return [("empresa_id", "Empresa proprietária", "select_id", True, emps, 6)] + CAMPOS_ATIVO_BASE
+
+
+def estoque(ativo_id=None, somente_ativos=False):
+    sql, args = SQL_ESTOQUE + " WHERE 1=1", []
+    if ativo_id:
+        sql += " AND a.id=?"
+        args.append(ativo_id)
+    emp = g.user["empresa_id"] if ativo_id else empresa_atual()
+    if emp:
+        sql += " AND a.empresa_id=?"
+        args.append(emp)
+    if somente_ativos:
+        sql += " AND a.ativo=1"
+    linhas = []
+    for a in get_db().execute(sql + " ORDER BY a.ativo DESC, a.categoria, a.nome", args).fetchall():
+        d = dict(a)
+        d["disponivel"] = d["quantidade_total"] - d["alocado"] - d["qtd_manutencao"]
+        linhas.append(d)
+    return linhas
+
+
+def get_ativo(ativo_id):
+    lista = estoque(ativo_id)
+    if not lista:
+        abort(404)
+    return lista[0]
+
+
+@app.route("/ativos")
+@login_required
+def ativos():
+    return render_template("ativos.html", ativos=estoque())
+
+
+@app.route("/ativos/exportar.xlsx")
+@login_required
+def ativos_xlsx():
+    return send_file(relatorios.xlsx_ativos(estoque()), as_attachment=True,
+                     download_name=f"estoque_ativos_{date.today():%Y%m%d}.xlsx")
+
+
+@app.route("/ativos/novo", methods=["GET", "POST"])
+@editor_required
+def ativo_novo():
+    return ativo_form(None)
+
+
+@app.route("/ativos/<int:ativo_id>/editar", methods=["GET", "POST"])
+@editor_required
+def ativo_editar(ativo_id):
+    return ativo_form(ativo_id)
+
+
+def ativo_form(ativo_id):
+    db = get_db()
+    atual = get_ativo(ativo_id) if ativo_id else None
+    campos = campos_ativo()
+    voltar = url_for("ativo_ver", ativo_id=ativo_id) if ativo_id else url_for("ativos")
+    if request.method == "POST":
+        dados, erros = ler_form(campos)
+        if atual and dados["quantidade_total"] is not None and \
+                dados["quantidade_total"] < atual["alocado"] + (dados["qtd_manutencao"] or 0) - 1e-9:
+            erros.append(f"A quantidade total não pode ficar menor que o alocado em contratos ({num(atual['alocado'])}) "
+                         "mais o que está em manutenção.")
+        if erros:
+            for x in erros:
+                flash(x, "danger")
+            return render_template("form.html", titulo="Ativo", campos=campos, valores=request.form, voltar=voltar)
+        cols = list(dados)
+        if ativo_id:
+            db.execute(f"UPDATE ativos SET {', '.join(c + '=?' for c in cols)} WHERE id=?", [dados[c] for c in cols] + [ativo_id])
+            audit("editou", "ativo", ativo_id, f"{dados['nome']} (total {num(dados['quantidade_total'])})")
+        else:
+            ativo_id = db.execute(f"INSERT INTO ativos ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                                  [dados[c] for c in cols]).lastrowid
+            audit("criou", "ativo", ativo_id, f"{dados['nome']} (total {num(dados['quantidade_total'])})")
+        db.commit()
+        flash("Ativo salvo.", "success")
+        return redirect(url_for("ativo_ver", ativo_id=ativo_id))
+    if atual:
+        valores = valores_form(campos, atual)
+    else:
+        valores = {"ativo": 1, "empresa_id": empresa_atual() or (campos[0][4][0][0] if campos[0][4] else None)}
+    return render_template("form.html", titulo="Ativo", campos=campos, valores=valores, voltar=voltar)
+
+
+@app.route("/ativos/<int:ativo_id>")
+@login_required
+def ativo_ver(ativo_id):
+    a = get_ativo(ativo_id)
+    alocs = get_db().execute("""SELECT al.*, e.numero, e.orgao FROM alocacoes al JOIN editais e ON e.id=al.edital_id
+                                WHERE al.ativo_id=? ORDER BY al.data_retorno IS NOT NULL, al.data_saida DESC, al.id DESC""",
+                             (ativo_id,)).fetchall()
+    return render_template("ativo.html", a=a, alocs=alocs)
+
+
+@app.route("/ativos/<int:ativo_id>/excluir", methods=["POST"])
+@admin_required
+def ativo_excluir(ativo_id):
+    a = get_ativo(ativo_id)
+    db = get_db()
+    db.execute("DELETE FROM ativos WHERE id=?", (ativo_id,))
+    audit("excluiu", "ativo", ativo_id, a["nome"])
+    db.commit()
+    flash("Ativo excluído.", "success")
+    return redirect(url_for("ativos"))
+
+
+def editais_para_alocar():
+    sql, args = "SELECT id, numero, orgao FROM editais WHERE status NOT IN ('Encerrado','Cancelado')", []
+    emp = empresa_atual()
+    if emp:
+        sql += " AND empresa_id=?"
+        args.append(emp)
+    return get_db().execute(sql + " ORDER BY id DESC", args).fetchall()
+
+
+@app.route("/alocacoes/nova", methods=["GET", "POST"])
+@editor_required
+def alocacao_nova():
+    return alocacao_form(None)
+
+
+@app.route("/alocacoes/<int:aid>/editar", methods=["GET", "POST"])
+@editor_required
+def alocacao_editar(aid):
+    return alocacao_form(aid)
+
+
+def _get_alocacao(aid):
+    db = get_db()
+    al = db.execute("SELECT * FROM alocacoes WHERE id=?", (aid,)).fetchone() or abort(404)
+    get_ativo(al["ativo_id"])
+    get_edital(al["edital_id"])
+    return al
+
+
+def alocacao_form(aid):
+    db = get_db()
+    atual = _get_alocacao(aid) if aid else None
+    lista_ativos = estoque(somente_ativos=True)
+    lista_editais = editais_para_alocar()
+    if atual:  # garante que o edital/ativo atuais aparecem mesmo se encerrados/inativos
+        if atual["edital_id"] not in [x["id"] for x in lista_editais]:
+            lista_editais = list(lista_editais) + [get_edital(atual["edital_id"])]
+        if atual["ativo_id"] not in [x["id"] for x in lista_ativos]:
+            lista_ativos.append(get_ativo(atual["ativo_id"]))
+    voltar = request.values.get("voltar", "")
+    if not voltar.startswith("/") or voltar.startswith("//"):
+        voltar = url_for("ativos")
+    if request.method == "POST":
+        f = request.form
+        erros = []
+        ativo_id = int(f.get("ativo_id")) if (f.get("ativo_id") or "").isdigit() else None
+        edital_id = int(f.get("edital_id")) if (f.get("edital_id") or "").isdigit() else None
+        ativo = next((x for x in lista_ativos if x["id"] == ativo_id), None)
+        if not ativo:
+            erros.append("Escolha o ativo.")
+        if edital_id not in [x["id"] for x in lista_editais]:
+            erros.append("Escolha o contrato / edital.")
+        try:
+            qtd = parse_num(f.get("quantidade")) or 0
+        except ValueError:
+            qtd = 0
+        if qtd <= 0:
+            erros.append("Informe uma quantidade maior que zero.")
+        elif ativo:
+            # o que esta alocação já ocupava volta para o disponível ao editar
+            livre = ativo["disponivel"]
+            if atual and atual["ativo_id"] == ativo_id and not atual["data_retorno"]:
+                livre += atual["quantidade"]
+            if not f.get("data_retorno") and qtd > livre + 1e-9:
+                erros.append(f"Estoque insuficiente de {ativo['nome']}: disponível {num(livre)}.")
+        if erros:
+            for x in erros:
+                flash(x, "danger")
+        else:
+            dados = {"ativo_id": ativo_id, "edital_id": edital_id, "quantidade": qtd,
+                     "data_saida": f.get("data_saida") or None, "data_prevista_retorno": f.get("data_prevista_retorno") or None,
+                     "data_retorno": f.get("data_retorno") or None, "local": f.get("local", "").strip() or None,
+                     "observacoes": f.get("observacoes", "").strip() or None}
+            cols = list(dados)
+            if aid:
+                db.execute(f"UPDATE alocacoes SET {', '.join(c + '=?' for c in cols)} WHERE id=?", [dados[c] for c in cols] + [aid])
+                audit("editou", "alocacoes", aid, f"{ativo['nome']}: {num(qtd)} → edital {edital_id}")
+            else:
+                aid = db.execute(f"INSERT INTO alocacoes ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                                 [dados[c] for c in cols]).lastrowid
+                audit("alocou", "alocacoes", aid, f"{ativo['nome']}: {num(qtd)} → edital {edital_id}")
+            db.commit()
+            flash("Alocação salva.", "success")
+            return redirect(voltar)
+    if request.method == "POST":
+        valores = request.form
+    elif atual:
+        valores = dict(atual)
+        valores["quantidade"] = num(atual["quantidade"])
+    else:
+        valores = {"ativo_id": request.args.get("ativo_id", ""), "edital_id": request.args.get("edital_id", ""),
+                   "data_saida": date.today().isoformat()}
+    return render_template("alocacao_form.html", valores=valores, ativos=lista_ativos, editais=lista_editais,
+                           voltar=voltar, novo=not atual)
+
+
+@app.route("/alocacoes/<int:aid>/devolver", methods=["POST"])
+@editor_required
+def alocacao_devolver(aid):
+    """Devolve ao estoque toda a quantidade ou parte dela (a parte devolvida vira um registro encerrado)."""
+    al = _get_alocacao(aid)
+    db = get_db()
+    voltar = request.form.get("voltar", "")
+    if not voltar.startswith("/") or voltar.startswith("//"):
+        voltar = url_for("ativo_ver", ativo_id=al["ativo_id"])
+    if al["data_retorno"]:
+        return redirect(voltar)
+    try:
+        qtd = parse_num(request.form.get("quantidade")) or al["quantidade"]
+    except ValueError:
+        qtd = 0
+    if qtd <= 0 or qtd > al["quantidade"] + 1e-9:
+        flash(f"Quantidade de devolução inválida (alocado: {num(al['quantidade'])}).", "danger")
+        return redirect(voltar)
+    data_ret = request.form.get("data_retorno") or date.today().isoformat()
+    if qtd >= al["quantidade"] - 1e-9:
+        db.execute("UPDATE alocacoes SET data_retorno=? WHERE id=?", (data_ret, aid))
+    else:
+        db.execute("UPDATE alocacoes SET quantidade=quantidade-? WHERE id=?", (qtd, aid))
+        db.execute("""INSERT INTO alocacoes (ativo_id, edital_id, quantidade, data_saida, data_prevista_retorno, data_retorno, local, observacoes)
+                      VALUES (?,?,?,?,?,?,?,?)""",
+                   (al["ativo_id"], al["edital_id"], qtd, al["data_saida"], al["data_prevista_retorno"], data_ret, al["local"],
+                    "Devolução parcial"))
+    audit("devolveu", "alocacoes", aid, f"{num(qtd)} de {num(al['quantidade'])}")
+    db.commit()
+    flash(f"Devolução de {num(qtd)} registrada; estoque atualizado.", "success")
+    return redirect(voltar)
+
+
+@app.route("/alocacoes/<int:aid>/excluir", methods=["POST"])
+@editor_required
+def alocacao_excluir(aid):
+    al = _get_alocacao(aid)
+    db = get_db()
+    db.execute("DELETE FROM alocacoes WHERE id=?", (aid,))
+    audit("excluiu", "alocacoes", aid, f"ativo {al['ativo_id']}, edital {al['edital_id']}")
+    db.commit()
+    flash("Alocação excluída.", "success")
+    voltar = request.form.get("voltar", "")
+    return redirect(voltar if voltar.startswith("/") and not voltar.startswith("//") else url_for("ativos"))
 
 
 # ---------------------------------------------------------------- empresas

@@ -25,6 +25,7 @@
    <ul class="navbar-nav me-auto">
     <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}">Painel</a></li>
     <li class="nav-item"><a class="nav-link" href="{{ url_for('editais') }}">Editais</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('ativos') }}">Estoque de ativos</a></li>
     {% if g.user.perfil == 'admin' %}
     <li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Administração</a>
      <ul class="dropdown-menu">

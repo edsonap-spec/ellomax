@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+ <div><a href="{{ url_for('ativos') }}" class="small">&larr; Estoque</a>
+  <h4 class="mb-0">{{ a.nome }} {% if not a.ativo %}<span class="badge text-bg-secondary fs-6">inativo</span>{% endif %}</h4>
+  <div class="text-muted small">{{ [a.codigo, a.categoria, a.empresa]|select|join(' · ') }}</div></div>
+ <div class="d-flex gap-2">
+  {% if pode_editar() %}<a href="{{ url_for('alocacao_nova', ativo_id=a.id, voltar=request.path) }}" class="btn btn-primary"><i class="bi bi-box-arrow-right"></i> Alocar em contrato</a>
+  <a href="{{ url_for('ativo_editar', ativo_id=a.id) }}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Editar</a>{% endif %}
+  {% if g.user.perfil == 'admin' %}<form method="post" action="{{ url_for('ativo_excluir', ativo_id=a.id) }}" data-confirm="Excluir o ativo e todo o histórico de alocações?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-outline-danger"><i class="bi bi-trash"></i></button></form>{% endif %}
+ </div>
+</div>
+<div class="row g-3 mb-4">
+ {% for rot, val, cor in [('Total', a.quantidade_total, 'primary'), ('Alocado em contratos', a.alocado, 'info'), ('Em manutenção', a.qtd_manutencao, 'warning'), ('Disponível', a.disponivel, 'success' if a.disponivel > 0 else 'danger')] %}
+ <div class="col-6 col-md-3"><div class="card kpi p-3 border-start border-4 border-{{ cor }}"><div class="rotulo">{{ rot }}</div><div class="valor">{{ val|num }} <small class="fs-6 fw-normal">{{ a.unidade or '' }}</small></div></div></div>
+ {% endfor %}
+</div>
+{% if a.valor_unitario %}<p class="small text-muted">Valor unitário {{ a.valor_unitario|brl }} · valor total do estoque {{ (a.valor_unitario * a.quantidade_total)|brl }}</p>{% endif %}
+{% if a.observacoes %}<p class="small" style="white-space:pre-line">{{ a.observacoes }}</p>{% endif %}
+<div class="card"><div class="card-header bg-white fw-semibold">Alocações</div>
+<div class="table-responsive"><table class="table table-sm table-hover mb-0">
+ <thead class="table-light"><tr><th>Contrato / edital</th><th class="text-num">Quantidade</th><th>Local</th><th>Saída</th><th>Retorno previsto</th><th>Devolvido em</th><th>Situação</th>{% if pode_editar() %}<th></th>{% endif %}</tr></thead>
+ <tbody>
+ {% for x in alocs %}
+ <tr class="{{ 'text-muted' if x.data_retorno }}"><td><a href="{{ url_for('edital_ver', eid=x.edital_id) }}#ativos">{{ x.numero }}</a> <small>{{ x.orgao }}</small>{% if x.observacoes %}<br><small class="text-muted">{{ x.observacoes }}</small>{% endif %}</td>
+  <td class="text-num">{{ x.quantidade|num }}</td><td><small>{{ x.local or '' }}</small></td><td>{{ x.data_saida|data }}</td><td>{{ x.data_prevista_retorno|data }}</td><td>{{ x.data_retorno|data }}</td>
+  <td>{% if x.data_retorno %}<span class="badge text-bg-secondary">Devolvido</span>{% elif x.data_prevista_retorno and x.data_prevista_retorno < hoje %}<span class="badge text-bg-danger">Retorno atrasado</span>{% else %}<span class="badge text-bg-primary">No contrato</span>{% endif %}</td>
+  {% if pode_editar() %}<td class="text-end" style="white-space:nowrap">{% include "_alocacao_acoes.html" %}</td>{% endif %}</tr>
+ {% else %}<tr><td colspan="8" class="text-muted text-center py-3">Ainda não foi alocado em nenhum contrato.</td></tr>{% endfor %}
+ </tbody></table></div></div>
+{% endblock %}

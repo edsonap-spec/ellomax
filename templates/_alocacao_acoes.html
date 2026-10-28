@@ -1,0 +1,16 @@
+{% set volta = request.path ~ ('#ativos' if request.endpoint == 'edital_ver' else '') %}
+{% if not x.data_retorno %}
+<button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="collapse" data-bs-target="#dev{{ x.id }}" title="Devolver ao estoque"><i class="bi bi-box-arrow-in-left"></i></button>
+{% endif %}
+<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('alocacao_editar', aid=x.id, voltar=volta) }}" title="Editar"><i class="bi bi-pencil"></i></a>
+<form method="post" action="{{ url_for('alocacao_excluir', aid=x.id) }}" class="d-inline" data-confirm="Excluir esta alocação? (para registrar o retorno use Devolver)"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="voltar" value="{{ volta }}"><button class="btn btn-sm btn-outline-danger" title="Excluir"><i class="bi bi-trash"></i></button></form>
+{% if not x.data_retorno %}
+<div class="collapse mt-2" id="dev{{ x.id }}">
+ <form method="post" action="{{ url_for('alocacao_devolver', aid=x.id) }}" class="d-flex gap-1 justify-content-end">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="voltar" value="{{ volta }}">
+  <input name="quantidade" class="form-control form-control-sm text-end" style="width:80px" value="{{ x.quantidade|num }}" title="Quantidade devolvida">
+  <input type="date" name="data_retorno" class="form-control form-control-sm" style="width:140px" value="{{ hoje }}">
+  <button class="btn btn-sm btn-success">Devolver</button>
+ </form>
+</div>
+{% endif %}

@@ -35,9 +35,12 @@ Os dados ficam no arquivo `licitacoes.db` (SQLite) e os anexos na pasta `uploads
 - **Termos aditivos:** prorrogação (atualiza a vigência do edital), acréscimo/supressão de valor e reajuste
   (opcionalmente aplicado aos valores unitários dos itens).
 - **Garantias contratuais:** modalidade, valor, apólice, seguradora, vigência e devolução.
+- **Estoque de ativos:** cadastro de equipamentos próprios (ex.: banheiros químicos) com quantidade total e em
+  manutenção; alocação em cada contrato com local e retorno previsto; devolução total ou parcial. O sistema mostra
+  quanto está em cada contrato e quanto sobra disponível, e não deixa alocar mais do que existe.
 - **Anexos:** edital, contrato, notas, comprovantes etc. (até 25 MB por envio), guardados na pasta `uploads/`.
 - **Painel:** totais e listas de recebimentos atrasados, a receber em 30 dias, entregas de empenhos próximas,
-  garantias e vigências vencendo.
+  garantias e vigências vencendo e ativos com retorno previsto.
 - **Alertas por e-mail:** resumo diário das pendências (Administração → Alertas por e-mail).
 - **Exportação:** lista de editais em Excel; cada edital em Excel (várias abas) e em PDF.
 - **Várias empresas (CNPJs):** filtro no topo da tela; usuários podem ser limitados a uma empresa.

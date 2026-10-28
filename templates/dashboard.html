@@ -33,6 +33,9 @@
  {% call lista('Garantias vencidas ou vencendo em 30 dias', 'bi-shield-exclamation', 'text-warning-emphasis', al.garantias, 'Nenhuma garantia para renovar ou liberar.') %}
   {% for ga in al.garantias %}<li class="list-group-item"><a href="{{ url_for('edital_ver', eid=ga.edital_id) }}#garantias">{{ ga.numero }} — {{ ga.orgao }}</a><br><small>{{ ga.tipo }} · {{ ga.valor|brl }} · fim <b class="{{ 'text-danger' if ga.data_fim < hoje }}">{{ ga.data_fim|data }}</b></small></li>{% endfor %}
  {% endcall %}
+ {% call lista('Ativos com retorno previsto (vencido ou em 7 dias)', 'bi-box-seam', 'text-warning-emphasis', al.devolucoes, 'Nenhum ativo para recolher.') %}
+  {% for x in al.devolucoes %}<li class="list-group-item"><a href="{{ url_for('edital_ver', eid=x.edital_id) }}#ativos">{{ x.numero }} — {{ x.orgao }}</a><br><small>{{ x.ativo_nome }} · {{ x.quantidade|num }} {{ x.unidade or '' }} · retorno <b class="{{ 'text-danger' if x.data_prevista_retorno < hoje }}">{{ x.data_prevista_retorno|data }}</b></small></li>{% endfor %}
+ {% endcall %}
 </div>
 
 <div class="card"><div class="card-header bg-white d-flex justify-content-between align-items-center"><span class="fw-semibold">Editais</span>

@@ -149,6 +149,20 @@ def xlsx_edital(d):
                            "Devolvida em"],
          [(x["tipo"], x["descricao"], x["percentual"], x["valor"], x["apolice"], x["seguradora"], _dt(x["data_inicio"]),
            _dt(x["data_fim"]), _dt(x["data_devolucao"])) for x in d["garantias"]], {"Valor": FMT_BRL, "%": FMT_PCT})
+    _aba(wb, "Ativos alocados", ["Ativo", "Código", "Quantidade", "Unidade", "Local", "Saída", "Retorno previsto", "Devolvido em"],
+         [(x["ativo_nome"], x["codigo"], x["quantidade"], x["unidade"], x["local"], _dt(x["data_saida"]),
+           _dt(x["data_prevista_retorno"]), _dt(x["data_retorno"])) for x in d["alocacoes"]], {"Quantidade": FMT_NUM})
+    return _salvar(wb)
+
+
+def xlsx_ativos(ativos):
+    wb = Workbook()
+    _aba(wb, "Estoque de ativos", ["Ativo", "Código", "Categoria", "Empresa", "Unidade", "Total", "Alocado", "Manutenção",
+                                   "Disponível", "Valor unitário", "Situação"],
+         [(a["nome"], a["codigo"], a["categoria"], a["empresa"], a["unidade"], a["quantidade_total"], a["alocado"],
+           a["qtd_manutencao"], a["disponivel"], a["valor_unitario"], "Ativo" if a["ativo"] else "Inativo") for a in ativos],
+         {"Total": FMT_NUM, "Alocado": FMT_NUM, "Manutenção": FMT_NUM, "Disponível": FMT_NUM, "Valor unitário": FMT_BRL},
+         primeira=True)
     return _salvar(wb)
 
 
@@ -252,6 +266,11 @@ def pdf_edital(d):
                            [(x["tipo"], x["descricao"], _brl(x["valor"]), x["apolice"], x["seguradora"],
                              f"{_d(x['data_inicio'])} a {_d(x['data_fim'])}", _d(x["data_devolucao"])) for x in d["garantias"]],
                            direita=(2,)))
+    if d["alocacoes"]:
+        hist.append(Paragraph("Ativos alocados", h2))
+        hist.append(tabela(["Ativo", "Quantidade", "Local", "Saída", "Retorno previsto", "Devolvido em"],
+                           [(x["ativo_nome"], f"{_num(x['quantidade'])} {x['unidade'] or ''}", x["local"], _d(x["data_saida"]),
+                             _d(x["data_prevista_retorno"]), _d(x["data_retorno"])) for x in d["alocacoes"]], direita=(1,)))
     doc.build(hist)
     buf.seek(0)
     return buf

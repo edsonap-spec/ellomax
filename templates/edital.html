@@ -32,7 +32,7 @@
 </div>
 
 <nav class="nav nav-pills small mb-3 no-print">
- {% for ancora, rot, qtd in [('itens','Itens',itens|length), ('empenhos','Empenhos/OF',empenhos|length), ('recebimentos','Recebimentos',receb|length), ('gastos','Gastos',gastos|length), ('aditivos','Aditivos',aditivos|length), ('garantias','Garantias',garantias|length), ('anexos','Anexos',anexos|length)] %}
+ {% for ancora, rot, qtd in [('itens','Itens',itens|length), ('empenhos','Empenhos/OF',empenhos|length), ('recebimentos','Recebimentos',receb|length), ('gastos','Gastos',gastos|length), ('aditivos','Aditivos',aditivos|length), ('garantias','Garantias',garantias|length), ('ativos','Ativos',alocacoes|selectattr('data_retorno','none')|list|length), ('anexos','Anexos',anexos|length)] %}
  <a class="nav-link py-1" href="#{{ ancora }}">{{ rot }} <span class="badge text-bg-light border">{{ qtd }}</span></a>
  {% endfor %}
 </nav>
@@ -167,6 +167,18 @@
   <td>{% if x.data_devolucao %}<span class="badge text-bg-success">Devolvida {{ x.data_devolucao|data }}</span>{% elif x.data_fim and x.data_fim < hoje %}<span class="badge text-bg-danger">Vencida</span>{% else %}<span class="badge text-bg-primary">Vigente</span>{% endif %}</td>
   {{ acoes('garantias', x) }}</tr>
  {% else %}<tr><td colspan="9" class="text-muted text-center py-3">Nenhuma garantia cadastrada.</td></tr>{% endfor %}
+ </tbody></table></div></div>
+
+<div class="card mb-4" id="ativos">{{ cabecalho('ativos', 'Ativos alocados neste contrato', '', 'Alocar ativo', url_for('alocacao_nova', edital_id=e.id, voltar=request.path ~ '#ativos')) }}
+<div class="table-responsive"><table class="table table-sm table-hover mb-0">
+ <thead class="table-light"><tr><th>Ativo</th><th class="text-num">Quantidade</th><th>Local</th><th>Saída</th><th>Retorno previsto</th><th>Devolvido em</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+ <tbody>
+ {% for x in alocacoes %}
+ <tr class="{{ 'text-muted' if x.data_retorno }}"><td><a href="{{ url_for('ativo_ver', ativo_id=x.ativo_id) }}">{{ x.ativo_nome }}</a>{% if x.codigo %} <small class="text-muted">{{ x.codigo }}</small>{% endif %}{% if x.observacoes %}<br><small class="text-muted">{{ x.observacoes }}</small>{% endif %}</td>
+  <td class="text-num">{{ x.quantidade|num }} {{ x.unidade or '' }}</td><td><small>{{ x.local or '' }}</small></td><td>{{ x.data_saida|data }}</td><td>{{ x.data_prevista_retorno|data }}</td><td>{{ x.data_retorno|data }}</td>
+  <td>{% if x.data_retorno %}<span class="badge text-bg-secondary">Devolvido</span>{% elif x.data_prevista_retorno and x.data_prevista_retorno < hoje %}<span class="badge text-bg-danger">Retorno atrasado</span>{% else %}<span class="badge text-bg-primary">No contrato</span>{% endif %}</td>
+  {% if pode_editar() %}<td class="text-end no-print" style="white-space:nowrap">{% include "_alocacao_acoes.html" %}</td>{% endif %}</tr>
+ {% else %}<tr><td colspan="8" class="text-muted text-center py-3">Nenhum ativo alocado.</td></tr>{% endfor %}
  </tbody></table></div></div>
 
 <div class="card mb-4" id="anexos"><div class="card-header bg-white fw-semibold">Anexos</div>
