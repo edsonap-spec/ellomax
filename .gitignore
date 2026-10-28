@@ -1,0 +1,4 @@
+licitacoes.db
+.secret_key
+__pycache__/
+uploads/

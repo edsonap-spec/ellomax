@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4">
+ <h5 class="mb-1">{{ 'Novo empenho / ordem de fornecimento' if novo else 'Editar empenho / OF' }} — Edital {{ e.numero }}</h5>
+ <p class="text-muted small mb-4">Informe as quantidades de cada item atendidas por este documento. Ao preencher a data de entrega, as quantidades são somadas ao "entregue" dos itens.</p>
+ <form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="row g-3">
+   <div class="col-md-3"><label class="form-label">Tipo</label><select name="tipo" class="form-select">{% for t in TIPOS %}<option {% if valores.get('tipo') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+   <div class="col-md-3"><label class="form-label">Número <span class="text-danger">*</span></label><input name="numero" class="form-control" value="{{ valores.get('numero') or '' }}" required></div>
+   <div class="col-md-2"><label class="form-label">Emissão</label><input type="date" name="data_emissao" class="form-control" value="{{ valores.get('data_emissao') or '' }}"></div>
+   <div class="col-md-2"><label class="form-label">Prazo de entrega</label><input type="date" name="prazo_entrega" class="form-control" value="{{ valores.get('prazo_entrega') or '' }}"></div>
+   <div class="col-md-2"><label class="form-label">Entregue em</label><input type="date" name="data_entrega" class="form-control" value="{{ valores.get('data_entrega') or '' }}"></div>
+   <div class="col-md-3"><label class="form-label">Valor (só se não houver itens)</label><div class="input-group"><span class="input-group-text">R$</span><input name="valor" class="form-control text-end" inputmode="decimal" value="{{ valores.get('valor') or '' }}" placeholder="0,00"></div></div>
+   <div class="col-md-9"><label class="form-label">Observações</label><input name="observacoes" class="form-control" value="{{ valores.get('observacoes') or '' }}"></div>
+  </div>
+  {% if itens %}
+  <div class="table-responsive mt-4"><table class="table table-sm align-middle">
+   <thead class="table-light"><tr><th>Lote</th><th>Item</th><th>Descrição</th><th>Un.</th><th class="text-num">Qtd. contratada</th><th class="text-num">Em outros empenhos</th><th class="text-num">Saldo disponível</th><th class="text-num">Vlr. unit.</th><th style="width:140px">Qtd. neste empenho</th></tr></thead>
+   <tbody>
+   {% for i in itens %}{% set saldo = i.quantidade - i.empenhado_outros %}
+   <tr><td>{{ i.lote or '' }}</td><td>{{ i.numero_item or '' }}</td><td><small>{{ i.descricao }}</small></td><td>{{ i.unidade or '' }}</td>
+    <td class="text-num">{{ i.quantidade|num }}</td><td class="text-num">{{ i.empenhado_outros|num }}</td><td class="text-num fw-semibold">{{ saldo|num }}</td><td class="text-num">{{ i.valor_unitario|brl }}</td>
+    <td><input name="qtd_{{ i.id }}" class="form-control form-control-sm text-end" inputmode="decimal"
+         value="{{ form.get('qtd_' ~ i.id, '') if form else (qtd_atual[i.id]|num if i.id in qtd_atual else '') }}" placeholder="0"></td></tr>
+   {% endfor %}
+   </tbody></table></div>
+  {% else %}<div class="alert alert-light mt-4 small">Este edital ainda não tem itens cadastrados; informe o valor do documento acima.</div>{% endif %}
+  <div class="mt-3 d-flex gap-2">
+   <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Salvar</button>
+   <a href="{{ voltar }}" class="btn btn-outline-secondary">Cancelar</a>
+  </div>
+ </form>
+</div>
+{% endblock %}

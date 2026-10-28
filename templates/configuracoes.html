@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8"><div class="card p-4">
+ <h5 class="mb-1">Alertas por e-mail</h5>
+ <p class="text-muted small">Um resumo diário é enviado com recebimentos atrasados, entregas de empenhos próximas, garantias e vigências vencendo.
+  O envio automático funciona enquanto o sistema estiver rodando (<code>python app.py</code>). Também é possível agendar <code>python app.py enviar-alertas</code> no Agendador de Tarefas do Windows ou no cron.</p>
+ <form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="row g-3">
+   <div class="col-md-8"><label class="form-label">Servidor SMTP</label><input name="smtp_host" class="form-control" value="{{ cfg.smtp_host or '' }}" placeholder="smtp.gmail.com"></div>
+   <div class="col-md-4"><label class="form-label">Porta</label><input name="smtp_porta" class="form-control" value="{{ cfg.smtp_porta or '587' }}"></div>
+   <div class="col-md-6"><label class="form-label">Usuário</label><input name="smtp_usuario" class="form-control" value="{{ cfg.smtp_usuario or '' }}" autocomplete="off"></div>
+   <div class="col-md-6"><label class="form-label">Senha {% if cfg.smtp_senha %}<small class="text-muted">(já definida, deixe em branco para manter)</small>{% endif %}</label><input type="password" name="smtp_senha" class="form-control" autocomplete="new-password"></div>
+   <div class="col-md-6"><label class="form-label">Remetente</label><input name="smtp_remetente" class="form-control" value="{{ cfg.smtp_remetente or '' }}" placeholder="licitacoes@suaempresa.com.br"></div>
+   <div class="col-md-6"><label class="form-label">Segurança</label><select name="smtp_seguranca" class="form-select">
+    {% for v, r in [('starttls','STARTTLS (porta 587)'), ('ssl','SSL/TLS (porta 465)'), ('nenhuma','Nenhuma')] %}<option value="{{ v }}" {% if (cfg.smtp_seguranca or 'starttls') == v %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+   <div class="col-12"><label class="form-label">Destinatários (separados por vírgula)</label><input name="alerta_destinatarios" class="form-control" value="{{ cfg.alerta_destinatarios or '' }}"></div>
+   <div class="col-md-6"><div class="form-check mt-2"><input class="form-check-input" type="checkbox" name="alerta_ativo" id="ativo" value="1" {% if cfg.alerta_ativo == '1' %}checked{% endif %}><label class="form-check-label" for="ativo">Enviar resumo diário automaticamente</label></div></div>
+   <div class="col-md-6"><label class="form-label">A partir das (hora)</label><select name="alerta_hora" class="form-select">{% for h in range(0, 24) %}<option value="{{ h }}" {% if (cfg.alerta_hora or '7')|string == h|string %}selected{% endif %}>{{ '%02d'|format(h) }}:00</option>{% endfor %}</select></div>
+  </div>
+  {% if cfg.alerta_ultimo_envio %}<p class="small text-muted mt-3 mb-0">Último envio: {{ cfg.alerta_ultimo_envio|data }}</p>{% endif %}
+  <div class="mt-4 d-flex gap-2">
+   <button class="btn btn-primary" name="acao" value="salvar">Salvar</button>
+   <button class="btn btn-outline-primary" name="acao" value="testar"><i class="bi bi-send"></i> Salvar e enviar agora</button>
+  </div>
+  <p class="small text-muted mt-3 mb-0">Gmail/Outlook: use uma "senha de app" gerada nas configurações de segurança da conta.</p>
+ </form>
+</div></div></div>
+{% endblock %}

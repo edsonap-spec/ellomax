@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-6"><div class="card p-4">
+ <h5 class="mb-3">{{ 'Novo usuário' if novo else 'Editar usuário' }}</h5>
+ <form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="mb-3"><label class="form-label">Nome</label><input name="nome" class="form-control" value="{{ u.get('nome','') }}" required></div>
+  <div class="mb-3"><label class="form-label">E-mail (login)</label><input name="email" class="form-control" value="{{ u.get('email','') }}" required></div>
+  <div class="mb-3"><label class="form-label">Perfil</label><select name="perfil" class="form-select">
+   {% for k, v in PERFIS.items() %}<option value="{{ k }}" {% if u.get('perfil') == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+  <div class="mb-3"><label class="form-label">Empresas que pode ver</label><select name="empresa_id" class="form-select">
+   <option value="">Todas as empresas</option>
+   {% for emp in empresas %}<option value="{{ emp.id }}" {% if u.get('empresa_id')|string == emp.id|string %}selected{% endif %}>Somente {{ emp.razao_social }}</option>{% endfor %}</select></div>
+  <div class="mb-3"><label class="form-label">{{ 'Senha inicial' if novo else 'Nova senha (deixe em branco para manter)' }}</label>
+   <input type="password" name="senha" class="form-control" minlength="8" {% if novo %}required{% endif %}>
+   <div class="form-text">O usuário será obrigado a trocar a senha no próximo acesso.</div></div>
+  <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="ativo" id="ativo" value="1" {% if u.get('ativo') %}checked{% endif %}><label class="form-check-label" for="ativo">Ativo</label></div>
+  <button class="btn btn-primary">Salvar</button> <a href="{{ url_for('usuarios') }}" class="btn btn-outline-secondary">Cancelar</a>
+ </form>
+</div></div></div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4">
+ <h5 class="mb-4">{{ titulo }}</h5>
+ <form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="row g-3">
+  {% for nome, rotulo, tipo, obrig, opcoes, larg in campos %}
+   <div class="col-md-{{ larg }}">
+    <label class="form-label" for="{{ nome }}">{{ rotulo }}{% if obrig %} <span class="text-danger">*</span>{% endif %}</label>
+    {% set v = valores.get(nome) if valores.get(nome) is not none else '' %}
+    {% if tipo == 'textarea' %}
+     <textarea class="form-control" id="{{ nome }}" name="{{ nome }}" rows="3" {% if obrig %}required{% endif %}>{{ v }}</textarea>
+    {% elif tipo == 'select' %}
+     <select class="form-select" id="{{ nome }}" name="{{ nome }}" {% if obrig %}required{% endif %}>
+      <option value="">—</option>
+      {% for o in opcoes %}<option {% if o == v %}selected{% endif %}>{{ o }}</option>{% endfor %}
+     </select>
+    {% elif tipo == 'select_id' %}
+     <select class="form-select" id="{{ nome }}" name="{{ nome }}" {% if obrig %}required{% endif %}>
+      {% if not obrig %}<option value="">—</option>{% endif %}
+      {% for val, rot in opcoes %}<option value="{{ val }}" {% if val|string == v|string %}selected{% endif %}>{{ rot }}</option>{% endfor %}
+     </select>
+    {% elif tipo == 'check' %}
+     <div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="{{ nome }}" name="{{ nome }}" value="1" {% if v and v|string not in ('0', '') %}checked{% endif %}>
+      <label class="form-check-label" for="{{ nome }}">Sim</label></div>
+    {% elif tipo == 'date' %}
+     <input type="date" class="form-control" id="{{ nome }}" name="{{ nome }}" value="{{ v }}" {% if obrig %}required{% endif %}>
+    {% elif tipo in ('money', 'number') %}
+     <div class="input-group">{% if tipo == 'money' %}<span class="input-group-text">R$</span>{% endif %}
+     <input type="text" inputmode="decimal" class="form-control text-end" id="{{ nome }}" name="{{ nome }}" value="{{ v }}" placeholder="0,00" {% if obrig %}required{% endif %}></div>
+    {% else %}
+     <input type="text" class="form-control" id="{{ nome }}" name="{{ nome }}" value="{{ v }}" {% if obrig %}required{% endif %}>
+    {% endif %}
+   </div>
+  {% endfor %}
+  </div>
+  <div class="mt-4 d-flex gap-2">
+   <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Salvar</button>
+   {% if permitir_outro %}<button class="btn btn-outline-primary" name="_outro" value="1">Salvar e incluir outro</button>{% endif %}
+   <a href="{{ voltar }}" class="btn btn-outline-secondary">Cancelar</a>
+  </div>
+ </form>
+</div>
+{% endblock %}

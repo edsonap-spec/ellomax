@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+ <h4 class="mb-0">Usuários</h4><a href="{{ url_for('usuario_novo') }}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Novo usuário</a>
+</div>
+<div class="card mb-3"><div class="card-body small text-muted">
+ <b>Administrador:</b> tudo, inclusive excluir editais, gerenciar usuários e ver a auditoria. ·
+ <b>Operador:</b> cadastra e edita editais, itens, gastos e recebimentos. ·
+ <b>Somente leitura:</b> apenas consulta.
+</div></div>
+<div class="card"><table class="table table-hover mb-0">
+ <thead class="table-light"><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresas</th><th>Situação</th><th></th></tr></thead>
+ <tbody>{% for u in usuarios %}
+ <tr class="{{ 'text-muted' if not u.ativo }}"><td>{{ u.nome }}</td><td>{{ u.email }}</td><td>{{ PERFIS[u.perfil] }}</td><td><small>{{ u.empresa or 'Todas' }}</small></td>
+  <td>{% if u.ativo %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
+  <td class="text-end"><a href="{{ url_for('usuario_editar', uid=u.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td></tr>
+ {% endfor %}</tbody></table></div>
+{% endblock %}
