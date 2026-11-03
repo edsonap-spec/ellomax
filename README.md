@@ -1,7 +1,7 @@
-# Controle de Licitações Ganhas
+# ELLOMAX · Controle de contratos e operação
 
-Sistema web para acompanhar editais vencidos: dados do edital, itens ganhos com quantidades e valores,
-gastos, recebimentos (previsto × recebido) e controle de acesso por usuário.
+Sistema web para acompanhar editais vencidos (itens, empenhos, gastos, recebimentos), o estoque de banheiros químicos
+e contêineres alocados nos contratos e as **ordens de serviço com checklist e assinatura do cliente**.
 
 ## Como rodar
 
@@ -21,6 +21,19 @@ Outras pessoas da rede podem acessar pelo IP do computador (ex.: http://192.168.
 Os dados ficam no arquivo `licitacoes.db` (SQLite) e os anexos na pasta `uploads/`. Quem já usava a versão anterior não perde nada: o banco é atualizado automaticamente.
 
 ## O que tem
+
+- **Ordens de serviço (OS):** numeração automática por ano (0001/2026), tipo (instalação/entrega, manutenção e limpeza,
+  recolhimento, troca, vistoria), vínculo com o contrato e o empenho/OF, agenda, equipe e veículo, equipamentos com nº de
+  patrimônio (pode trazer os ativos já alocados no contrato), **checklist** conforme / não conforme / não se aplica com
+  observação por item, ocorrências, fotos tiradas pelo celular, e **assinatura do cliente e do técnico na tela** (dedo,
+  caneta ou mouse). Ao assinar, a OS é concluída e travada; só um administrador pode reabrir.
+- **PDF da OS para entregar ao cliente:** cabeçalho da empresa, dados do contratante, equipamentos, checklist marcado,
+  ocorrências, termo de recebimento com as assinaturas (ou linhas em branco para assinar no papel), fotos e código de
+  verificação no rodapé.
+- **Relatório de OS:** filtros por contrato, período, tipo e situação; PDF consolidado (resumo por tipo + lista, com
+  campos de assinatura do responsável e do fiscal do contrato, útil para medição) e Excel.
+- **Modelos de checklist:** já vem com instalação de banheiro químico, manutenção e limpeza, recolhimento e entrega de
+  contêiner; edite ou crie outros em *Modelos de checklist* (uma linha por item, `# Grupo` para separar seções).
 
 - **Editais:** empresa participante, órgão, CNPJ, UASG, nº do edital e do processo, modalidade, objeto, datas de
   abertura e homologação, nº do contrato/ata, vigência, prazo e local de entrega, contato, responsável, link e observações.
@@ -56,21 +69,35 @@ No Gmail/Outlook use uma "senha de app".
 
 ## Backup
 
-Copie o arquivo `licitacoes.db` e a pasta `uploads/`.
+Copie o arquivo `licitacoes.db` e a pasta `uploads/` (ou o volume `/data` no Docker).
 
 ## Configuração opcional (variáveis de ambiente)
 
 | Variável | Para quê |
 |---|---|
 | `PORT` | Porta do servidor (padrão 5000) |
+| `LICITACOES_DATA` | Pasta de dados (banco, anexos, chave); no Docker é `/data` |
 | `LICITACOES_DB` | Caminho do banco de dados |
 | `LICITACOES_UPLOADS` | Pasta dos anexos (padrão `uploads/`) |
 | `SMTP_SENHA` | Senha do e-mail (em vez de guardá-la no banco) |
 | `ADMIN_PASSWORD` | Senha do admin criado na primeira execução |
 | `SECRET_KEY` | Chave das sessões (gerada automaticamente se não informada) |
 
-## Colocar na internet
+## Colocar na internet (VPS Hostinger + Coolify)
 
-Para uso por várias pessoas fora do escritório, hospede em um serviço com disco persistente
-(ex.: PythonAnywhere, uma VPS, ou Render/Railway com volume persistente) e use HTTPS.
-Em produção rode com um servidor WSGI, por exemplo: `pip install waitress && waitress-serve --port=5000 app:app`.
+O repositório tem um `Dockerfile` pronto. No Coolify:
+
+1. **New Resource → Public/Private Repository**, escolha este repositório e o build pack **Dockerfile**.
+2. Porta exposta: **5000**.
+3. Em **Storages**, crie um volume persistente montado em **`/data`** (banco, anexos, fotos e chave de sessão ficam lá).
+4. Em **Environment Variables**, defina `ADMIN_PASSWORD` (senha do primeiro acesso) e, se quiser, `SECRET_KEY` e `SMTP_SENHA`.
+5. Aponte o domínio (ex.: `sistema.ellomax.com.br`) e deixe o Coolify gerar o HTTPS.
+
+O container roda com o servidor `waitress`, já tem healthcheck em `/saude` e fuso `America/Sao_Paulo`.
+Backup: copie o volume `/data`.
+
+## Interface
+
+Visual próprio da ELLOMAX, sem Bootstrap: menu lateral, tipografia Archivo + IBM Plex Mono (números), cores
+azul-petróleo e âmbar, modo escuro automático e telas pensadas para o celular do técnico em campo (checklist com
+botões grandes, câmera para fotos e quadro de assinatura). Tudo é servido localmente (sem CDN).

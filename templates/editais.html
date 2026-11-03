@@ -1,23 +1,24 @@
 {% extends "base.html" %}
+{% block title %}Editais e contratos{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
- <h4 class="mb-0">Editais ganhos</h4>
- <div class="d-flex gap-2"><a href="{{ url_for('editais_xlsx', q=q, status=st) }}" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Exportar Excel</a>
+<div class="page-head">
+ <div><div class="eyebrow">Contratos</div><h1>Editais ganhos</h1></div>
+ <div class="acoes"><a href="{{ url_for('editais_xlsx', q=q, status=st) }}" class="btn"><i class="bi bi-file-earmark-spreadsheet"></i> Exportar Excel</a>
  {% if pode_editar() %}<a href="{{ url_for('edital_novo') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Novo edital</a>{% endif %}</div>
 </div>
-<form class="row g-2 mb-3 no-print">
- <div class="col-md-6"><input name="q" value="{{ q }}" class="form-control" placeholder="Buscar por órgão, nº do edital, processo, contrato ou objeto"></div>
- <div class="col-md-3"><select name="status" class="form-select"><option value="">Todas as situações</option>{% for s in STATUS %}<option {% if s == st %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
- <div class="col-md-3"><button class="btn btn-outline-primary">Filtrar</button></div>
+<form class="filtros no-print">
+ <input class="grow" type="search" name="q" value="{{ q }}" placeholder="Buscar por órgão, nº do edital, processo, contrato ou objeto">
+ <select name="status" style="width:auto"><option value="">Todas as situações</option>{% for s in STATUS %}<option {% if s == st %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+ <button class="btn"><i class="bi bi-funnel"></i> Filtrar</button>
 </form>
-<div class="card"><div class="table-responsive"><table class="table table-hover mb-0">
- <thead class="table-light"><tr><th>Edital</th><th>Empresa</th><th>Órgão</th><th>Modalidade</th><th>Objeto</th><th>Vigência</th><th>Situação</th><th class="text-num">Contratado</th><th class="text-num">Saldo a receber</th></tr></thead>
+<div class="card"><div class="tbl-wrap"><table class="tbl">
+ <thead><tr><th>Edital</th><th>Órgão</th><th>Modalidade</th><th>Objeto</th><th>Vigência</th><th>Situação</th><th class="num">Contratado</th><th class="num">Saldo a receber</th></tr></thead>
  <tbody>
  {% for e, r in linhas %}
- <tr><td><a href="{{ url_for('edital_ver', eid=e.id) }}">{{ e.numero }}</a></td><td><small>{{ e.empresa or '' }}</small></td><td>{{ e.orgao }}</td><td><small>{{ e.modalidade or '' }}</small></td>
-  <td><small>{{ e.objeto|truncate(80) }}</small></td><td><small>{{ e.vigencia_inicio|data }} a {{ e.vigencia_fim|data }}</small></td>
-  <td><span class="badge text-bg-secondary">{{ e.status }}</span></td>
-  <td class="text-num">{{ r.contratado|brl }}</td><td class="text-num">{{ r.a_receber|brl }}</td></tr>
- {% else %}<tr><td colspan="9" class="text-muted text-center py-4">Nenhum edital encontrado.</td></tr>{% endfor %}
+ <tr><td><a class="forte" href="{{ url_for('edital_ver', eid=e.id) }}">{{ e.numero }}</a><span class="sub">{{ e.empresa or '' }}</span></td><td>{{ e.orgao }}</td><td><small>{{ e.modalidade or '' }}</small></td>
+  <td><small>{{ e.objeto|truncate(80) }}</small></td><td class="nowrap"><small>{{ e.vigencia_inicio|data }} a {{ e.vigencia_fim|data }}</small></td>
+  <td><span class="badge {{ badge_status(e.status) }}">{{ e.status }}</span></td>
+  <td class="num">{{ r.contratado|brl }}</td><td class="num">{{ r.a_receber|brl }}</td></tr>
+ {% else %}<tr><td colspan="8"><div class="empty"><i class="bi bi-search"></i>Nenhum edital encontrado.</div></td></tr>{% endfor %}
  </tbody></table></div></div>
 {% endblock %}

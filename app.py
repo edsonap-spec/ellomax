@@ -24,8 +24,11 @@ import alertas
 import relatorios
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get("LICITACOES_DB", os.path.join(BASE_DIR, "licitacoes.db"))
-UPLOAD_DIR = os.environ.get("LICITACOES_UPLOADS", os.path.join(BASE_DIR, "uploads"))
+# Pasta de dados persistentes (banco, anexos e chave de sessão). Em Docker/Coolify aponte para um volume.
+DATA_DIR = os.environ.get("LICITACOES_DATA", BASE_DIR)
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_PATH = os.environ.get("LICITACOES_DB", os.path.join(DATA_DIR, "licitacoes.db"))
+UPLOAD_DIR = os.environ.get("LICITACOES_UPLOADS", os.path.join(DATA_DIR, "uploads"))
 EXTENSOES_ANEXO = {"pdf", "doc", "docx", "xls", "xlsx", "odt", "ods", "csv", "txt", "xml",
                    "jpg", "jpeg", "png", "zip", "rar", "7z", "eml", "msg"}
 
@@ -33,7 +36,7 @@ EXTENSOES_ANEXO = {"pdf", "doc", "docx", "xls", "xlsx", "odt", "ods", "csv", "tx
 def _secret_key():
     if os.environ.get("SECRET_KEY"):
         return os.environ["SECRET_KEY"]
-    path = os.path.join(BASE_DIR, ".secret_key")
+    path = os.path.join(DATA_DIR, ".secret_key")
     if not os.path.exists(path):
         with open(path, "w") as f:
             f.write(secrets.token_hex(32))
@@ -65,8 +68,65 @@ TIPOS_EMPENHO = ["Nota de empenho", "Ordem de fornecimento", "Autorização de f
 TIPOS_GARANTIA = ["Caução em dinheiro", "Seguro-garantia", "Fiança bancária", "Títulos da dívida pública"]
 TIPOS_ADITIVO = ["Prorrogação de prazo", "Acréscimo de valor", "Supressão de valor", "Reajuste",
                  "Reequilíbrio econômico-financeiro", "Alteração de cláusula", "Outro"]
+TIPOS_OS = ["Instalação / entrega", "Manutenção e limpeza", "Recolhimento", "Troca / substituição", "Vistoria",
+            "Outro"]
+STATUS_OS = ["Aberta", "Agendada", "Em execução", "Concluída", "Cancelada"]
+RESULTADOS_CHECK = {"ok": "Conforme", "nc": "Não conforme", "na": "Não se aplica"}
+EXTENSOES_FOTO = {"jpg", "jpeg", "png"}
+
 CATEGORIAS_ANEXO = ["Edital", "Proposta", "Ata / homologação", "Contrato", "Empenho / OF", "Nota fiscal",
                     "Garantia", "Aditivo", "Comprovante de entrega", "Comprovante de pagamento", "Outro"]
+
+# Modelos de checklist criados na primeira execução (podem ser editados em Administração → Modelos de checklist)
+MODELOS_CHECKLIST_PADRAO = [
+    ("Instalação de banheiro químico", "Instalação / entrega", [
+        ("Posicionamento", "Local nivelado, firme e com acesso para o caminhão de manutenção"),
+        ("Posicionamento", "Equipamento posicionado conforme orientação do contratante"),
+        ("Posicionamento", "Equipamento estável, sem risco de tombamento"),
+        ("Estrutura", "Cabine sem avarias (paredes, teto e piso)"),
+        ("Estrutura", "Porta abrindo e fechando corretamente"),
+        ("Estrutura", "Trinco e indicador livre/ocupado funcionando"),
+        ("Estrutura", "Respiro e ventilação desobstruídos"),
+        ("Higiene e insumos", "Tanque limpo e abastecido com produto químico desodorizante"),
+        ("Higiene e insumos", "Vaso, assento e mictório higienizados"),
+        ("Higiene e insumos", "Papel higiênico abastecido"),
+        ("Higiene e insumos", "Lavatório com água e sabonete (quando houver)"),
+        ("Identificação", "Adesivos de identificação e instruções de uso visíveis"),
+        ("Identificação", "Números de patrimônio conferidos com a ordem de serviço"),
+    ]),
+    ("Manutenção e limpeza de banheiro químico", "Manutenção e limpeza", [
+        ("Limpeza", "Sucção dos dejetos realizada"),
+        ("Limpeza", "Lavagem interna com água sob pressão"),
+        ("Limpeza", "Higienização de vaso, assento, mictório, paredes e piso"),
+        ("Reposição", "Produto químico reposto no tanque"),
+        ("Reposição", "Papel higiênico reposto"),
+        ("Reposição", "Sabonete e papel-toalha repostos (quando houver)"),
+        ("Conservação", "Porta, trinco e dobradiças verificados"),
+        ("Conservação", "Avarias ou vandalismo registrados em ocorrências"),
+        ("Meio ambiente", "Resíduos destinados a estação de tratamento licenciada (MTR)"),
+        ("Meio ambiente", "Área ao redor deixada limpa"),
+    ]),
+    ("Recolhimento de equipamentos", "Recolhimento", [
+        ("Conferência", "Quantidade recolhida confere com a alocada no contrato"),
+        ("Conferência", "Números de patrimônio conferidos"),
+        ("Limpeza", "Sucção final realizada antes da retirada"),
+        ("Estado", "Equipamentos sem avarias causadas por terceiros (se houver, registrar em ocorrências)"),
+        ("Local", "Local deixado limpo após a retirada"),
+        ("Local", "Fotos do local registradas após a retirada"),
+    ]),
+    ("Entrega de contêiner", "Instalação / entrega", [
+        ("Base", "Terreno nivelado e firme, com calços ou base adequada"),
+        ("Base", "Contêiner posicionado conforme orientação do contratante"),
+        ("Estrutura", "Portas, fechaduras e travas funcionando"),
+        ("Estrutura", "Piso, paredes e forro sem avarias"),
+        ("Estrutura", "Janelas e vidros íntegros"),
+        ("Instalações", "Instalação elétrica testada (tomadas, iluminação e disjuntores)"),
+        ("Instalações", "Ar-condicionado testado (quando houver)"),
+        ("Instalações", "Instalações hidrossanitárias testadas (quando houver)"),
+        ("Entrega", "Limpeza interna realizada"),
+        ("Entrega", "Chaves entregues ao responsável do contratante"),
+    ]),
+]
 
 # ---------------------------------------------------------------- banco
 
@@ -227,6 +287,76 @@ CREATE TABLE IF NOT EXISTS alocacoes (
     local TEXT,
     observacoes TEXT
 );
+CREATE TABLE IF NOT EXISTS ordens_servico (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    edital_id INTEGER NOT NULL REFERENCES editais(id) ON DELETE CASCADE,
+    empenho_id INTEGER REFERENCES empenhos(id) ON DELETE SET NULL,
+    ano INTEGER NOT NULL,
+    sequencial INTEGER NOT NULL,
+    numero TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Aberta',
+    data_programada TEXT,
+    hora_programada TEXT,
+    data_execucao TEXT,
+    hora_inicio TEXT,
+    hora_fim TEXT,
+    local TEXT,
+    solicitante TEXT,
+    equipe TEXT,
+    veiculo TEXT,
+    descricao TEXT,
+    ocorrencias TEXT,
+    recebedor_nome TEXT,
+    recebedor_documento TEXT,
+    recebedor_cargo TEXT,
+    tecnico_nome TEXT,
+    assinatura_cliente TEXT,
+    assinatura_tecnico TEXT,
+    assinado_em TEXT,
+    criado_por INTEGER REFERENCES usuarios(id),
+    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (ano, sequencial)
+);
+CREATE TABLE IF NOT EXISTS os_itens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    os_id INTEGER NOT NULL REFERENCES ordens_servico(id) ON DELETE CASCADE,
+    ativo_id INTEGER REFERENCES ativos(id) ON DELETE SET NULL,
+    descricao TEXT NOT NULL,
+    quantidade REAL NOT NULL DEFAULT 1,
+    unidade TEXT,
+    identificacao TEXT
+);
+CREATE TABLE IF NOT EXISTS os_checklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    os_id INTEGER NOT NULL REFERENCES ordens_servico(id) ON DELETE CASCADE,
+    ordem INTEGER NOT NULL DEFAULT 0,
+    grupo TEXT,
+    descricao TEXT NOT NULL,
+    resultado TEXT,
+    observacao TEXT
+);
+CREATE TABLE IF NOT EXISTS os_fotos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    os_id INTEGER NOT NULL REFERENCES ordens_servico(id) ON DELETE CASCADE,
+    arquivo TEXT NOT NULL,
+    legenda TEXT,
+    enviado_por TEXT,
+    enviado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS checklist_modelos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    tipo_os TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS checklist_modelo_itens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    modelo_id INTEGER NOT NULL REFERENCES checklist_modelos(id) ON DELETE CASCADE,
+    ordem INTEGER NOT NULL DEFAULT 0,
+    grupo TEXT,
+    descricao TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS config (
     chave TEXT PRIMARY KEY,
     valor TEXT
@@ -281,6 +411,11 @@ def init_db():
         db.execute("INSERT INTO empresas (razao_social) VALUES ('Minha Empresa')")
     primeira = db.execute("SELECT id FROM empresas ORDER BY id LIMIT 1").fetchone()[0]
     db.execute("UPDATE editais SET empresa_id=? WHERE empresa_id IS NULL", (primeira,))
+    if not db.execute("SELECT 1 FROM checklist_modelos LIMIT 1").fetchone():
+        for nome, tipo, linhas in MODELOS_CHECKLIST_PADRAO:
+            mid = db.execute("INSERT INTO checklist_modelos (nome, tipo_os) VALUES (?,?)", (nome, tipo)).lastrowid
+            db.executemany("INSERT INTO checklist_modelo_itens (modelo_id, ordem, grupo, descricao) VALUES (?,?,?,?)",
+                           [(mid, i, g_, d_) for i, (g_, d_) in enumerate(linhas, start=1)])
     if not db.execute("SELECT 1 FROM usuarios LIMIT 1").fetchone():
         senha = os.environ.get("ADMIN_PASSWORD", "admin123")
         db.execute(
@@ -404,13 +539,29 @@ def empresas_permitidas():
 @app.context_processor
 def inject():
     ctx = {"PERFIS": PERFIS, "csrf_token": session.get("csrf", ""), "pode_editar": pode_editar,
-           "hoje": date.today().isoformat()}
+           "hoje": date.today().isoformat(), "badge_status": badge_status}
     if g.get("user"):
         emp = empresa_atual()
         ctx["empresas_menu"] = empresas_permitidas()
         ctx["empresa_sel"] = emp
         ctx["empresa_restrita"] = bool(g.user["empresa_id"])
+        sql = """SELECT COUNT(*) FROM ordens_servico os JOIN editais e ON e.id=os.edital_id
+                 WHERE os.status NOT IN ('Concluída','Cancelada') AND os.data_programada <= date('now','localtime')"""
+        ctx["os_pendentes"] = get_db().execute(sql + (" AND e.empresa_id=?" if emp else ""), (emp,) if emp else ()).fetchone()[0]
     return ctx
+
+
+TONS_STATUS = {
+    # editais
+    "Homologado": "b-info", "Contrato assinado": "b-brand", "Em execução": "b-signal", "Suspenso": "b-warn",
+    "Encerrado": "", "Cancelado": "b-danger",
+    # ordens de serviço
+    "Aberta": "", "Agendada": "b-info", "Concluída": "b-ok", "Cancelada": "b-danger",
+}
+
+
+def badge_status(status):
+    return TONS_STATUS.get(status, "")
 
 
 def pode_editar():
@@ -821,6 +972,10 @@ def carregar_edital(eid):
                                    ORDER BY al.data_retorno IS NOT NULL, al.data_saida DESC, al.id DESC""", (eid,)).fetchall(),
         "gastos_cat": db.execute("""SELECT COALESCE(categoria,'Sem categoria') AS categoria, SUM(valor) AS total
                                     FROM gastos WHERE edital_id=? GROUP BY 1 ORDER BY 2 DESC""", (eid,)).fetchall(),
+        "ordens": db.execute("""SELECT os.*, (SELECT COUNT(*) FROM os_checklist c WHERE c.os_id=os.id) AS ck_total,
+                                (SELECT COUNT(*) FROM os_checklist c WHERE c.os_id=os.id AND c.resultado='nc') AS ck_nc
+                                FROM ordens_servico os WHERE os.edital_id=?
+                                ORDER BY COALESCE(os.data_execucao, os.data_programada) DESC, os.id DESC""", (eid,)).fetchall(),
         "r": resumo_edital(eid),
     }
 
@@ -854,10 +1009,13 @@ def edital_xlsx(eid):
 def edital_excluir(eid):
     db = get_db()
     e = get_edital(eid)
+    ids_os = [x[0] for x in db.execute("SELECT id FROM ordens_servico WHERE edital_id=?", (eid,))]
     db.execute("DELETE FROM editais WHERE id=?", (eid,))
     audit("excluiu", "edital", eid, e["numero"])
     db.commit()
     shutil.rmtree(os.path.join(UPLOAD_DIR, str(eid)), ignore_errors=True)
+    for os_id in ids_os:
+        shutil.rmtree(os.path.join(UPLOAD_DIR, "os", str(os_id)), ignore_errors=True)
     flash("Edital excluído.", "success")
     return redirect(url_for("editais"))
 
@@ -1429,6 +1587,609 @@ def alocacao_excluir(aid):
     return redirect(voltar if voltar.startswith("/") and not voltar.startswith("//") else url_for("ativos"))
 
 
+# ---------------------------------------------------------------- ordens de serviço
+
+SQL_OS = """SELECT os.*, e.numero AS edital_numero, e.orgao, e.cnpj_orgao, e.numero_contrato, e.empresa_id,
+    emp.razao_social AS empresa, emp.cnpj AS empresa_cnpj, em.numero AS empenho_numero, em.tipo AS empenho_tipo,
+    (SELECT COUNT(*) FROM os_checklist c WHERE c.os_id=os.id) AS ck_total,
+    (SELECT COUNT(*) FROM os_checklist c WHERE c.os_id=os.id AND c.resultado='ok') AS ck_ok,
+    (SELECT COUNT(*) FROM os_checklist c WHERE c.os_id=os.id AND c.resultado='nc') AS ck_nc,
+    (SELECT COUNT(*) FROM os_checklist c WHERE c.os_id=os.id AND c.resultado='na') AS ck_na,
+    (SELECT COALESCE(SUM(quantidade),0) FROM os_itens oi WHERE oi.os_id=os.id) AS qtd_itens,
+    (SELECT COUNT(*) FROM os_fotos f WHERE f.os_id=os.id) AS qtd_fotos
+    FROM ordens_servico os JOIN editais e ON e.id=os.edital_id
+    LEFT JOIN empresas emp ON emp.id=e.empresa_id LEFT JOIN empenhos em ON em.id=os.empenho_id"""
+
+
+def get_os(os_id):
+    o = get_db().execute(SQL_OS + " WHERE os.id=?", (os_id,)).fetchone()
+    if not o or (g.user["empresa_id"] and o["empresa_id"] != g.user["empresa_id"]):
+        abort(404)
+    return o
+
+
+def os_editavel(o):
+    """Depois de assinada, a OS fica travada até ser reaberta por um administrador."""
+    if o["assinado_em"]:
+        flash("Esta OS já foi assinada pelo cliente. Para alterar, um administrador precisa reabri-la.", "warning")
+        return False
+    return True
+
+
+def carregar_os(os_id):
+    db = get_db()
+    o = get_os(os_id)
+    checklist = db.execute("SELECT * FROM os_checklist WHERE os_id=? ORDER BY ordem, id", (os_id,)).fetchall()
+    grupos = []
+    for c in checklist:
+        if not grupos or grupos[-1][0] != (c["grupo"] or ""):
+            grupos.append((c["grupo"] or "", []))
+        grupos[-1][1].append(c)
+    return {
+        "o": o,
+        "edital": db.execute("SELECT * FROM editais WHERE id=?", (o["edital_id"],)).fetchone(),
+        "itens": db.execute("""SELECT oi.*, a.codigo FROM os_itens oi LEFT JOIN ativos a ON a.id=oi.ativo_id
+                               WHERE oi.os_id=? ORDER BY oi.id""", (os_id,)).fetchall(),
+        "checklist": checklist,
+        "grupos": grupos,
+        "fotos": db.execute("SELECT * FROM os_fotos WHERE os_id=? ORDER BY id", (os_id,)).fetchall(),
+    }
+
+
+def codigo_verificacao(o):
+    import hashlib
+    base = f"{o['id']}|{o['numero']}|{o['assinado_em']}|{(o['assinatura_cliente'] or '')[-200:]}"
+    return hashlib.sha256(base.encode()).hexdigest()[:10].upper()
+
+
+def consultar_os():
+    f = request.args
+    sql, args = SQL_OS + " WHERE 1=1", []
+    q = f.get("q", "").strip()
+    if q:
+        sql += " AND (os.numero LIKE ? OR e.numero LIKE ? OR e.orgao LIKE ? OR os.local LIKE ? OR os.equipe LIKE ?)"
+        args += [f"%{q}%"] * 5
+    if f.get("status") in STATUS_OS:
+        sql += " AND os.status=?"
+        args.append(f["status"])
+    if f.get("tipo") in TIPOS_OS:
+        sql += " AND os.tipo=?"
+        args.append(f["tipo"])
+    if (f.get("edital_id") or "").isdigit():
+        sql += " AND os.edital_id=?"
+        args.append(int(f["edital_id"]))
+    data_ref = "COALESCE(os.data_execucao, os.data_programada, substr(os.criado_em,1,10))"
+    if f.get("de"):
+        sql += f" AND {data_ref} >= ?"
+        args.append(f["de"])
+    if f.get("ate"):
+        sql += f" AND {data_ref} <= ?"
+        args.append(f["ate"])
+    emp = empresa_atual()
+    if emp:
+        sql += " AND e.empresa_id=?"
+        args.append(emp)
+    sql += f" ORDER BY {data_ref} DESC, os.id DESC"
+    filtros = {k: f.get(k, "") for k in ("q", "status", "tipo", "edital_id", "de", "ate")}
+    return filtros, get_db().execute(sql, args).fetchall()
+
+
+def editais_para_os(incluir_id=None):
+    sql, args = "SELECT id, numero, orgao, local_entrega FROM editais WHERE (status != 'Cancelado' OR id=?)", [incluir_id or 0]
+    emp = empresa_atual()
+    if g.user["empresa_id"]:
+        emp = g.user["empresa_id"]
+    if emp:
+        sql += " AND empresa_id=?"
+        args.append(emp)
+    return get_db().execute(sql + " ORDER BY id DESC", args).fetchall()
+
+
+@app.route("/os")
+@login_required
+def os_lista():
+    filtros, lista = consultar_os()
+    resumo = {s: 0 for s in STATUS_OS}
+    for o in lista:
+        resumo[o["status"]] = resumo.get(o["status"], 0) + 1
+    return render_template("os_lista.html", lista=lista, f=filtros, resumo=resumo, STATUS=STATUS_OS, TIPOS=TIPOS_OS,
+                           editais=editais_para_os())
+
+
+@app.route("/os/exportar.xlsx")
+@login_required
+def os_xlsx():
+    _, lista = consultar_os()
+    return send_file(relatorios.xlsx_os(lista), as_attachment=True, download_name=f"ordens_servico_{date.today():%Y%m%d}.xlsx")
+
+
+@app.route("/os/relatorio.pdf")
+@login_required
+def os_relatorio_pdf():
+    filtros, lista = consultar_os()
+    edital = None
+    if filtros["edital_id"]:
+        edital = get_edital(int(filtros["edital_id"]))
+    itens = {}
+    if lista:
+        marc = ",".join("?" * len(lista))
+        for li in get_db().execute(f"SELECT * FROM os_itens WHERE os_id IN ({marc}) ORDER BY id", [o["id"] for o in lista]):
+            itens.setdefault(li["os_id"], []).append(li)
+    return send_file(relatorios.pdf_relatorio_os(lista, itens, filtros, edital), as_attachment=True,
+                     download_name=f"relatorio_os_{date.today():%Y%m%d}.pdf", mimetype="application/pdf")
+
+
+@app.route("/os/nova", methods=["GET", "POST"])
+@editor_required
+def os_nova():
+    return os_form(None)
+
+
+@app.route("/os/<int:os_id>/editar", methods=["GET", "POST"])
+@editor_required
+def os_editar(os_id):
+    o = get_os(os_id)
+    if not os_editavel(o):
+        return redirect(url_for("os_ver", os_id=os_id))
+    return os_form(o)
+
+
+CAMPOS_OS_TEXTO = ["data_programada", "hora_programada", "data_execucao", "hora_inicio", "hora_fim", "local",
+                   "solicitante", "equipe", "veiculo", "descricao", "ocorrencias"]
+
+
+def os_form(atual):
+    db = get_db()
+    lista_editais = editais_para_os(atual["edital_id"] if atual else None)
+    ids_editais = [x["id"] for x in lista_editais]
+    empenhos = db.execute(f"""SELECT id, edital_id, tipo, numero FROM empenhos
+                              WHERE edital_id IN ({','.join('?' * len(ids_editais)) or 'NULL'}) ORDER BY id DESC""",
+                          ids_editais).fetchall()
+    modelos = db.execute("SELECT * FROM checklist_modelos WHERE ativo=1 ORDER BY nome").fetchall()
+    voltar = request.values.get("voltar", "")
+    if not voltar.startswith("/") or voltar.startswith("//"):
+        voltar = url_for("os_ver", os_id=atual["id"]) if atual else url_for("os_lista")
+    if request.method == "POST":
+        f = request.form
+        erros = []
+        edital_id = int(f["edital_id"]) if (f.get("edital_id") or "").isdigit() else None
+        if edital_id not in ids_editais:
+            erros.append("Escolha o contrato / edital.")
+        empenho_id = int(f["empenho_id"]) if (f.get("empenho_id") or "").isdigit() else None
+        if empenho_id and not any(m["id"] == empenho_id and m["edital_id"] == edital_id for m in empenhos):
+            erros.append("O empenho / OF escolhido não pertence a este contrato.")
+        tipo = f.get("tipo")
+        if tipo not in TIPOS_OS:
+            erros.append("Escolha o tipo de serviço.")
+        status = f.get("status") if f.get("status") in STATUS_OS else "Aberta"
+        dados = {k: (f.get(k, "").strip() or None) for k in CAMPOS_OS_TEXTO}
+        if status == "Aberta" and dados["data_programada"]:
+            status = "Agendada"
+        if erros:
+            for x in erros:
+                flash(x, "danger")
+        else:
+            dados.update({"edital_id": edital_id, "empenho_id": empenho_id, "tipo": tipo, "status": status})
+            cols = list(dados)
+            if atual:
+                db.execute(f"UPDATE ordens_servico SET {', '.join(c + '=?' for c in cols)} WHERE id=?",
+                           [dados[c] for c in cols] + [atual["id"]])
+                os_id = atual["id"]
+                audit("editou", "ordem de serviço", os_id, atual["numero"])
+            else:
+                ano = int((dados["data_programada"] or date.today().isoformat())[:4])
+                seq = db.execute("SELECT COALESCE(MAX(sequencial),0)+1 FROM ordens_servico WHERE ano=?", (ano,)).fetchone()[0]
+                numero = f"{seq:04d}/{ano}"
+                os_id = db.execute(f"""INSERT INTO ordens_servico ({', '.join(cols)}, ano, sequencial, numero, criado_por)
+                                       VALUES ({', '.join('?' * len(cols))}, ?, ?, ?, ?)""",
+                                   [dados[c] for c in cols] + [ano, seq, numero, g.user["id"]]).lastrowid
+                modelo_id = int(f["modelo_id"]) if (f.get("modelo_id") or "").isdigit() else None
+                if modelo_id:
+                    db.execute("""INSERT INTO os_checklist (os_id, ordem, grupo, descricao)
+                                  SELECT ?, ordem, grupo, descricao FROM checklist_modelo_itens WHERE modelo_id=?""",
+                               (os_id, modelo_id))
+                if f.get("importar_ativos"):
+                    _importar_ativos(db, os_id, edital_id)
+                audit("criou", "ordem de serviço", os_id, f"OS {numero} ({tipo})")
+            db.commit()
+            flash("Ordem de serviço salva.", "success")
+            return redirect(url_for("os_ver", os_id=os_id))
+    if request.method == "POST":
+        valores = request.form
+    elif atual:
+        valores = dict(atual)
+    else:
+        eid = request.args.get("edital_id", "")
+        tipo = request.args.get("tipo") if request.args.get("tipo") in TIPOS_OS else TIPOS_OS[0]
+        local = next((x["local_entrega"] for x in lista_editais if str(x["id"]) == eid), None)
+        modelo = min((m["id"] for m in modelos if m["tipo_os"] == tipo), default="")
+        valores = {"edital_id": eid, "empenho_id": request.args.get("empenho_id", ""), "tipo": tipo,
+                   "status": "Aberta", "data_programada": date.today().isoformat(), "local": local or "",
+                   "modelo_id": modelo, "importar_ativos": "1"}
+    return render_template("os_form.html", valores=valores, editais=lista_editais, empenhos=empenhos, modelos=modelos,
+                           TIPOS=TIPOS_OS, STATUS=STATUS_OS, novo=not atual, o=atual, voltar=voltar)
+
+
+def _importar_ativos(db, os_id, edital_id):
+    linhas = db.execute("""SELECT al.ativo_id, a.nome, a.unidade, a.codigo, SUM(al.quantidade) AS qtd FROM alocacoes al
+                           JOIN ativos a ON a.id=al.ativo_id WHERE al.edital_id=? AND COALESCE(al.data_retorno,'')=''
+                           GROUP BY al.ativo_id ORDER BY a.nome""", (edital_id,)).fetchall()
+    db.executemany("INSERT INTO os_itens (os_id, ativo_id, descricao, quantidade, unidade) VALUES (?,?,?,?,?)",
+                   [(os_id, x["ativo_id"], x["nome"], x["qtd"], x["unidade"]) for x in linhas])
+    return len(linhas)
+
+
+@app.route("/os/<int:os_id>")
+@login_required
+def os_ver(os_id):
+    d = carregar_os(os_id)
+    ativos_lista = estoque(somente_ativos=True)
+    return render_template("os_ver.html", ativos=ativos_lista, RESULTADOS=RESULTADOS_CHECK, STATUS=STATUS_OS,
+                           codigo=codigo_verificacao(d["o"]) if d["o"]["assinado_em"] else None, **d)
+
+
+@app.route("/os/<int:os_id>/documento.pdf")
+@login_required
+def os_pdf(os_id):
+    d = carregar_os(os_id)
+    o = d["o"]
+    d["fotos_caminhos"] = [(os.path.join(UPLOAD_DIR, "os", str(os_id), f["arquivo"]), f["legenda"]) for f in d["fotos"]]
+    d["codigo"] = codigo_verificacao(o) if o["assinado_em"] else None
+    nome = secure_filename(f"OS_{o['numero'].replace('/', '-')}") or "os"
+    return send_file(relatorios.pdf_os(d), as_attachment=request.args.get("baixar") == "1", download_name=f"{nome}.pdf",
+                     mimetype="application/pdf")
+
+
+@app.route("/os/<int:os_id>/excluir", methods=["POST"])
+@editor_required
+def os_excluir(os_id):
+    o = get_os(os_id)
+    if o["assinado_em"] and g.user["perfil"] != "admin":
+        abort(403)
+    db = get_db()
+    db.execute("DELETE FROM ordens_servico WHERE id=?", (os_id,))
+    audit("excluiu", "ordem de serviço", os_id, o["numero"])
+    db.commit()
+    shutil.rmtree(os.path.join(UPLOAD_DIR, "os", str(os_id)), ignore_errors=True)
+    flash(f"OS {o['numero']} excluída.", "success")
+    return redirect(url_for("os_lista"))
+
+
+@app.route("/os/<int:os_id>/status", methods=["POST"])
+@editor_required
+def os_status(os_id):
+    o = get_os(os_id)
+    novo = request.form.get("status")
+    if novo not in STATUS_OS or not os_editavel(o):
+        return redirect(url_for("os_ver", os_id=os_id))
+    db = get_db()
+    extra = ""
+    if novo == "Em execução" and not o["data_execucao"]:
+        agora = datetime.now()
+        db.execute("UPDATE ordens_servico SET data_execucao=?, hora_inicio=COALESCE(hora_inicio, ?) WHERE id=?",
+                   (agora.date().isoformat(), agora.strftime("%H:%M"), os_id))
+        extra = " Início registrado agora."
+    db.execute("UPDATE ordens_servico SET status=? WHERE id=?", (novo, os_id))
+    audit("mudou situação", "ordem de serviço", os_id, f"{o['numero']}: {o['status']} → {novo}")
+    db.commit()
+    flash(f"Situação alterada para {novo}.{extra}", "success")
+    return redirect(url_for("os_ver", os_id=os_id))
+
+
+@app.route("/os/<int:os_id>/itens", methods=["POST"])
+@editor_required
+def os_item_add(os_id):
+    o = get_os(os_id)
+    if not os_editavel(o):
+        return redirect(url_for("os_ver", os_id=os_id))
+    db = get_db()
+    f = request.form
+    if f.get("acao") == "importar":
+        n = _importar_ativos(db, os_id, o["edital_id"])
+        db.commit()
+        flash(f"{n} ativo(s) alocado(s) no contrato incluído(s)." if n else "Não há ativos alocados neste contrato.",
+              "success" if n else "warning")
+        return redirect(url_for("os_ver", os_id=os_id) + "#equipamentos")
+    ativo_id = int(f["ativo_id"]) if (f.get("ativo_id") or "").isdigit() else None
+    ativo = get_ativo(ativo_id) if ativo_id else None
+    descricao = f.get("descricao", "").strip() or (ativo["nome"] if ativo else "")
+    try:
+        qtd = parse_num(f.get("quantidade")) or 1
+    except ValueError:
+        qtd = 0
+    if not descricao or qtd <= 0:
+        flash("Informe o equipamento/serviço e uma quantidade maior que zero.", "danger")
+    else:
+        db.execute("INSERT INTO os_itens (os_id, ativo_id, descricao, quantidade, unidade, identificacao) VALUES (?,?,?,?,?,?)",
+                   (os_id, ativo_id, descricao, qtd, f.get("unidade", "").strip() or (ativo["unidade"] if ativo else None),
+                    f.get("identificacao", "").strip() or None))
+        audit("incluiu item", "ordem de serviço", os_id, f"{o['numero']}: {num(qtd)} × {descricao}")
+        db.commit()
+    return redirect(url_for("os_ver", os_id=os_id) + "#equipamentos")
+
+
+@app.route("/os/<int:os_id>/itens/<int:item_id>", methods=["POST"])
+@editor_required
+def os_item_salvar(os_id, item_id):
+    o = get_os(os_id)
+    if not os_editavel(o):
+        return redirect(url_for("os_ver", os_id=os_id))
+    db = get_db()
+    it = db.execute("SELECT * FROM os_itens WHERE id=? AND os_id=?", (item_id, os_id)).fetchone() or abort(404)
+    if request.form.get("acao") == "excluir":
+        db.execute("DELETE FROM os_itens WHERE id=?", (item_id,))
+        audit("excluiu item", "ordem de serviço", os_id, f"{o['numero']}: {it['descricao']}")
+    else:
+        try:
+            qtd = parse_num(request.form.get("quantidade")) or it["quantidade"]
+        except ValueError:
+            qtd = it["quantidade"]
+        db.execute("UPDATE os_itens SET quantidade=?, identificacao=? WHERE id=?",
+                   (qtd, request.form.get("identificacao", "").strip() or None, item_id))
+    db.commit()
+    return redirect(url_for("os_ver", os_id=os_id) + "#equipamentos")
+
+
+@app.route("/os/<int:os_id>/checklist", methods=["POST"])
+@editor_required
+def os_checklist_salvar(os_id):
+    o = get_os(os_id)
+    if not os_editavel(o):
+        return redirect(url_for("os_ver", os_id=os_id))
+    db = get_db()
+    f = request.form
+    if f.get("acao") == "adicionar":
+        desc = f.get("nova_descricao", "").strip()
+        if desc:
+            ordem = db.execute("SELECT COALESCE(MAX(ordem),0)+1 FROM os_checklist WHERE os_id=?", (os_id,)).fetchone()[0]
+            db.execute("INSERT INTO os_checklist (os_id, ordem, grupo, descricao) VALUES (?,?,?,?)",
+                       (os_id, ordem, f.get("novo_grupo", "").strip() or "Itens adicionais", desc))
+            db.commit()
+        return redirect(url_for("os_ver", os_id=os_id) + "#checklist")
+    n = 0
+    for c in db.execute("SELECT id FROM os_checklist WHERE os_id=?", (os_id,)).fetchall():
+        res = f.get(f"res_{c['id']}")
+        db.execute("UPDATE os_checklist SET resultado=?, observacao=? WHERE id=?",
+                   (res if res in RESULTADOS_CHECK else None, f.get(f"obs_{c['id']}", "").strip() or None, c["id"]))
+        n += 1 if res in RESULTADOS_CHECK else 0
+    if f.get("ocorrencias") is not None:
+        db.execute("UPDATE ordens_servico SET ocorrencias=? WHERE id=?", (f.get("ocorrencias", "").strip() or None, os_id))
+    if (f.get("excluir") or "").isdigit():
+        db.execute("DELETE FROM os_checklist WHERE id=? AND os_id=?", (int(f["excluir"]), os_id))
+        db.commit()
+        return redirect(url_for("os_ver", os_id=os_id) + "#checklist")
+    audit("preencheu checklist", "ordem de serviço", os_id, f"{o['numero']}: {n} de {o['ck_total']} itens")
+    db.commit()
+    flash("Checklist salvo.", "success")
+    return redirect(url_for("os_ver", os_id=os_id) + ("#assinatura" if f.get("seguir") else "#checklist"))
+
+
+@app.route("/os/<int:os_id>/fotos", methods=["POST"])
+@editor_required
+def os_foto_enviar(os_id):
+    o = get_os(os_id)
+    if not os_editavel(o):
+        return redirect(url_for("os_ver", os_id=os_id))
+    pasta = os.path.join(UPLOAD_DIR, "os", str(os_id))
+    os.makedirs(pasta, exist_ok=True)
+    db = get_db()
+    legenda = request.form.get("legenda", "").strip() or None
+    enviados = 0
+    for arq in request.files.getlist("fotos"):
+        if not arq or not arq.filename:
+            continue
+        ext = arq.filename.rsplit(".", 1)[-1].lower() if "." in arq.filename else ""
+        if ext not in EXTENSOES_FOTO:
+            flash(f"Envie fotos em JPG ou PNG ({arq.filename}).", "danger")
+            continue
+        nome = f"{uuid.uuid4().hex}.jpg"
+        try:
+            _salvar_foto(arq, os.path.join(pasta, nome))
+        except Exception:
+            flash(f"Não foi possível ler a imagem {arq.filename}.", "danger")
+            continue
+        db.execute("INSERT INTO os_fotos (os_id, arquivo, legenda, enviado_por) VALUES (?,?,?,?)",
+                   (os_id, nome, legenda, g.user["nome"]))
+        enviados += 1
+    if enviados:
+        audit("anexou fotos", "ordem de serviço", os_id, f"{o['numero']}: {enviados}")
+        db.commit()
+        flash(f"{enviados} foto(s) anexada(s).", "success")
+    return redirect(url_for("os_ver", os_id=os_id) + "#fotos")
+
+
+def _salvar_foto(arq, destino):
+    """Reduz fotos de celular para no máximo 1600 px e grava em JPEG (corrige a rotação EXIF)."""
+    from PIL import Image, ImageOps
+    img = ImageOps.exif_transpose(Image.open(arq.stream))
+    img = img.convert("RGB")
+    img.thumbnail((1600, 1600))
+    img.save(destino, "JPEG", quality=82, optimize=True)
+
+
+@app.route("/os/<int:os_id>/fotos/<int:foto_id>")
+@login_required
+def os_foto(os_id, foto_id):
+    get_os(os_id)
+    ft = get_db().execute("SELECT * FROM os_fotos WHERE id=? AND os_id=?", (foto_id, os_id)).fetchone() or abort(404)
+    return send_from_directory(os.path.join(UPLOAD_DIR, "os", str(os_id)), ft["arquivo"])
+
+
+@app.route("/os/<int:os_id>/fotos/<int:foto_id>/excluir", methods=["POST"])
+@editor_required
+def os_foto_excluir(os_id, foto_id):
+    o = get_os(os_id)
+    if not os_editavel(o):
+        return redirect(url_for("os_ver", os_id=os_id))
+    db = get_db()
+    ft = db.execute("SELECT * FROM os_fotos WHERE id=? AND os_id=?", (foto_id, os_id)).fetchone() or abort(404)
+    db.execute("DELETE FROM os_fotos WHERE id=?", (foto_id,))
+    audit("excluiu foto", "ordem de serviço", os_id, o["numero"])
+    db.commit()
+    try:
+        os.remove(os.path.join(UPLOAD_DIR, "os", str(os_id), ft["arquivo"]))
+    except OSError:
+        pass
+    return redirect(url_for("os_ver", os_id=os_id) + "#fotos")
+
+
+def _assinatura_valida(v):
+    return bool(v) and v.startswith("data:image/png;base64,") and len(v) < 400_000
+
+
+@app.route("/os/<int:os_id>/assinar", methods=["POST"])
+@editor_required
+def os_assinar(os_id):
+    o = get_os(os_id)
+    if not os_editavel(o):
+        return redirect(url_for("os_ver", os_id=os_id))
+    f = request.form
+    erros = []
+    if o["status"] == "Cancelada":
+        erros.append("Não é possível assinar uma OS cancelada.")
+    pendentes = o["ck_total"] - o["ck_ok"] - o["ck_nc"] - o["ck_na"]
+    if pendentes:
+        erros.append(f"Preencha todo o checklist antes da assinatura ({pendentes} item(ns) sem resposta).")
+    nome = f.get("recebedor_nome", "").strip()
+    if not nome:
+        erros.append("Informe o nome de quem recebe pelo cliente.")
+    ass_cli = f.get("assinatura_cliente", "")
+    if not _assinatura_valida(ass_cli):
+        erros.append("Colete a assinatura do cliente no quadro.")
+    ass_tec = f.get("assinatura_tecnico", "")
+    if ass_tec and not _assinatura_valida(ass_tec):
+        ass_tec = ""
+    if erros:
+        for x in erros:
+            flash(x, "danger")
+        return redirect(url_for("os_ver", os_id=os_id) + "#assinatura")
+    agora = datetime.now()
+    db = get_db()
+    db.execute("""UPDATE ordens_servico SET recebedor_nome=?, recebedor_documento=?, recebedor_cargo=?, tecnico_nome=?,
+                  assinatura_cliente=?, assinatura_tecnico=?, assinado_em=?, status='Concluída',
+                  data_execucao=COALESCE(data_execucao, ?), hora_fim=COALESCE(hora_fim, ?) WHERE id=?""",
+               (nome, f.get("recebedor_documento", "").strip() or None, f.get("recebedor_cargo", "").strip() or None,
+                f.get("tecnico_nome", "").strip() or g.user["nome"], ass_cli, ass_tec or None,
+                agora.strftime("%Y-%m-%d %H:%M"), agora.date().isoformat(), agora.strftime("%H:%M"), os_id))
+    audit("assinou", "ordem de serviço", os_id, f"{o['numero']}: recebido por {nome}")
+    db.commit()
+    flash(f"OS {o['numero']} assinada e concluída. O PDF já pode ser enviado ao cliente.", "success")
+    return redirect(url_for("os_ver", os_id=os_id))
+
+
+@app.route("/os/<int:os_id>/reabrir", methods=["POST"])
+@admin_required
+def os_reabrir(os_id):
+    o = get_os(os_id)
+    db = get_db()
+    db.execute("""UPDATE ordens_servico SET assinatura_cliente=NULL, assinatura_tecnico=NULL, assinado_em=NULL,
+                  status='Em execução' WHERE id=?""", (os_id,))
+    audit("reabriu", "ordem de serviço", os_id, f"{o['numero']} (assinada em {o['assinado_em']})")
+    db.commit()
+    flash("OS reaberta. As assinaturas anteriores foram descartadas; colete-as novamente depois das correções.", "warning")
+    return redirect(url_for("os_ver", os_id=os_id))
+
+
+# ---------------------------------------------------------------- modelos de checklist
+
+def _linhas_modelo(texto):
+    """Converte o texto do formulário em (grupo, descrição). Linhas iniciadas por # definem o grupo."""
+    grupo, linhas = None, []
+    for bruto in (texto or "").splitlines():
+        t = bruto.strip()
+        if not t:
+            continue
+        if t.startswith("#"):
+            grupo = t.lstrip("#").strip() or None
+        else:
+            linhas.append((grupo, t.lstrip("-•* ").strip()))
+    return linhas
+
+
+def _texto_modelo(itens):
+    partes, grupo = [], object()
+    for it in itens:
+        if it["grupo"] != grupo:
+            grupo = it["grupo"]
+            if grupo:
+                partes.append(("" if not partes else "\n") + f"# {grupo}")
+        partes.append(it["descricao"])
+    return "\n".join(partes)
+
+
+@app.route("/checklists")
+@editor_required
+def checklists():
+    lista = get_db().execute("""SELECT m.*, (SELECT COUNT(*) FROM checklist_modelo_itens i WHERE i.modelo_id=m.id) AS qtd
+                                FROM checklist_modelos m ORDER BY m.ativo DESC, m.nome""").fetchall()
+    return render_template("checklists.html", modelos=lista)
+
+
+@app.route("/checklists/novo", methods=["GET", "POST"])
+@editor_required
+def checklist_novo():
+    return checklist_form(None)
+
+
+@app.route("/checklists/<int:mid>/editar", methods=["GET", "POST"])
+@editor_required
+def checklist_editar(mid):
+    return checklist_form(mid)
+
+
+def checklist_form(mid):
+    db = get_db()
+    atual = db.execute("SELECT * FROM checklist_modelos WHERE id=?", (mid,)).fetchone() if mid else None
+    if mid and not atual:
+        abort(404)
+    if request.method == "POST":
+        f = request.form
+        nome = f.get("nome", "").strip()
+        linhas = _linhas_modelo(f.get("itens"))
+        tipo = f.get("tipo_os") if f.get("tipo_os") in TIPOS_OS else None
+        if not nome or not linhas:
+            flash("Informe o nome e pelo menos um item do checklist.", "danger")
+            return render_template("checklist_form.html", m=f, texto=f.get("itens", ""), TIPOS=TIPOS_OS, novo=not mid)
+        if mid:
+            db.execute("UPDATE checklist_modelos SET nome=?, tipo_os=?, ativo=? WHERE id=?",
+                       (nome, tipo, 1 if f.get("ativo") else 0, mid))
+            db.execute("DELETE FROM checklist_modelo_itens WHERE modelo_id=?", (mid,))
+            audit("editou", "modelo de checklist", mid, nome)
+        else:
+            mid = db.execute("INSERT INTO checklist_modelos (nome, tipo_os, ativo) VALUES (?,?,?)",
+                             (nome, tipo, 1 if f.get("ativo") else 0)).lastrowid
+            audit("criou", "modelo de checklist", mid, nome)
+        db.executemany("INSERT INTO checklist_modelo_itens (modelo_id, ordem, grupo, descricao) VALUES (?,?,?,?)",
+                       [(mid, i, gr, de) for i, (gr, de) in enumerate(linhas, start=1)])
+        db.commit()
+        flash("Modelo de checklist salvo. As OS já abertas mantêm o checklist que tinham.", "success")
+        return redirect(url_for("checklists"))
+    texto = ""
+    if atual:
+        texto = _texto_modelo(db.execute("SELECT * FROM checklist_modelo_itens WHERE modelo_id=? ORDER BY ordem, id",
+                                         (mid,)).fetchall())
+    return render_template("checklist_form.html", m=dict(atual) if atual else {"ativo": 1}, texto=texto, TIPOS=TIPOS_OS,
+                           novo=not mid)
+
+
+@app.route("/checklists/<int:mid>/excluir", methods=["POST"])
+@admin_required
+def checklist_excluir(mid):
+    db = get_db()
+    m = db.execute("SELECT * FROM checklist_modelos WHERE id=?", (mid,)).fetchone() or abort(404)
+    db.execute("DELETE FROM checklist_modelos WHERE id=?", (mid,))
+    audit("excluiu", "modelo de checklist", mid, m["nome"])
+    db.commit()
+    flash("Modelo excluído.", "success")
+    return redirect(url_for("checklists"))
+
+
+@app.route("/saude")
+def saude():
+    get_db().execute("SELECT 1").fetchone()
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------- empresas
 
 @app.route("/empresas")
@@ -1622,4 +2383,11 @@ if __name__ == "__main__":
     if not debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         iniciar_agendador()
     print(f"Acesse http://localhost:{port}")
+    if not debug:
+        try:
+            from waitress import serve  # servidor de produção (Docker / Coolify / rede local)
+            serve(app, host="0.0.0.0", port=port, threads=int(os.environ.get("THREADS", 8)))
+            sys.exit(0)
+        except ImportError:
+            pass
     app.run(host="0.0.0.0", port=port, debug=debug)

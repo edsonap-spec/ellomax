@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Modelos de checklist{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">Operação</div><h1>Modelos de checklist</h1><div class="sub">Usados ao abrir uma OS. Alterar um modelo não muda as OS já abertas.</div></div>
+ <div class="acoes"><a href="{{ url_for('checklist_novo') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Novo modelo</a></div></div>
+<div class="card"><div class="tbl-wrap"><table class="tbl">
+ <thead><tr><th>Modelo</th><th>Sugerido para</th><th class="num">Itens</th><th>Situação</th><th></th></tr></thead>
+ <tbody>{% for m in modelos %}
+ <tr class="{{ 'apagado' if not m.ativo }}"><td><a class="forte" href="{{ url_for('checklist_editar', mid=m.id) }}">{{ m.nome }}</a></td><td>{{ m.tipo_os or 'Qualquer tipo' }}</td><td class="num">{{ m.qtd }}</td>
+  <td>{% if m.ativo %}<span class="badge b-ok">Ativo</span>{% else %}<span class="badge">Inativo</span>{% endif %}</td>
+  <td class="acao"><span class="btns"><a href="{{ url_for('checklist_editar', mid=m.id) }}" class="btn btn-sm btn-icon btn-ghost" aria-label="Editar"><i class="bi bi-pencil"></i></a>
+   {% if g.user.perfil == 'admin' %}<form method="post" action="{{ url_for('checklist_excluir', mid=m.id) }}" class="inline" data-confirm="Excluir o modelo {{ m.nome }}?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-icon btn-ghost t-danger" aria-label="Excluir"><i class="bi bi-trash3"></i></button></form>{% endif %}</span></td></tr>
+ {% else %}<tr><td colspan="5"><div class="empty">Nenhum modelo cadastrado.</div></td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

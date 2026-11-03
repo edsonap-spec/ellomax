@@ -1,18 +1,18 @@
 {% extends "base.html" %}
+{% block title %}Usuários{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
- <h4 class="mb-0">Usuários</h4><a href="{{ url_for('usuario_novo') }}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Novo usuário</a>
+<div class="page-head"><div><div class="eyebrow">Administração</div><h1>Usuários</h1></div>
+ <div class="acoes"><a href="{{ url_for('usuario_novo') }}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Novo usuário</a></div></div>
+<div class="nota" style="margin-bottom:18px">
+ <b>Administrador:</b> tudo, inclusive excluir editais, reabrir OS assinadas, gerenciar usuários e ver a auditoria. ·
+ <b>Operador:</b> cadastra e edita editais, OS, checklists, itens, gastos e recebimentos; coleta assinaturas. ·
+ <b>Somente leitura:</b> apenas consulta e imprime.
 </div>
-<div class="card mb-3"><div class="card-body small text-muted">
- <b>Administrador:</b> tudo, inclusive excluir editais, gerenciar usuários e ver a auditoria. ·
- <b>Operador:</b> cadastra e edita editais, itens, gastos e recebimentos. ·
- <b>Somente leitura:</b> apenas consulta.
-</div></div>
-<div class="card"><table class="table table-hover mb-0">
- <thead class="table-light"><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresas</th><th>Situação</th><th></th></tr></thead>
+<div class="card"><div class="tbl-wrap"><table class="tbl">
+ <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresas</th><th>Situação</th><th></th></tr></thead>
  <tbody>{% for u in usuarios %}
- <tr class="{{ 'text-muted' if not u.ativo }}"><td>{{ u.nome }}</td><td>{{ u.email }}</td><td>{{ PERFIS[u.perfil] }}</td><td><small>{{ u.empresa or 'Todas' }}</small></td>
-  <td>{% if u.ativo %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
-  <td class="text-end"><a href="{{ url_for('usuario_editar', uid=u.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a></td></tr>
- {% endfor %}</tbody></table></div>
+ <tr class="{{ 'apagado' if not u.ativo }}"><td><b>{{ u.nome }}</b></td><td>{{ u.email }}</td><td>{{ PERFIS[u.perfil] }}</td><td><small>{{ u.empresa or 'Todas' }}</small></td>
+  <td>{% if u.ativo %}<span class="badge b-ok">Ativo</span>{% else %}<span class="badge">Inativo</span>{% endif %}</td>
+  <td class="acao"><a href="{{ url_for('usuario_editar', uid=u.id) }}" class="btn btn-sm btn-icon btn-ghost" aria-label="Editar"><i class="bi bi-pencil"></i></a></td></tr>
+ {% endfor %}</tbody></table></div></div>
 {% endblock %}

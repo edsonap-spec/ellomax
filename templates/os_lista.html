@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Ordens de serviço{% endblock %}
+{% block content %}
+{% set qs = f|dictsort|selectattr(1)|list %}
+<div class="page-head">
+ <div><div class="eyebrow">Operação</div><h1>Ordens de serviço</h1><div class="sub">Instalações, manutenções, recolhimentos e vistorias, com checklist e assinatura do cliente.</div></div>
+ <div class="acoes">
+  <a href="{{ url_for('os_relatorio_pdf', **f) }}" class="btn" target="_blank"><i class="bi bi-filetype-pdf"></i> <span class="rot-longo">Relatório</span> PDF</a>
+  <a href="{{ url_for('os_xlsx', **f) }}" class="btn"><i class="bi bi-file-earmark-spreadsheet"></i> Excel</a>
+  {% if pode_editar() %}<a href="{{ url_for('os_nova') }}" class="btn btn-signal"><i class="bi bi-clipboard2-plus"></i> Nova OS</a>{% endif %}
+ </div>
+</div>
+
+<div class="kpis">
+ {% for st, tom in [('Aberta','tone-mute'), ('Agendada','tone-info'), ('Em execução','tone-signal'), ('Concluída','tone-ok'), ('Cancelada','tone-danger')] %}
+ <a class="kpi {{ tom }}" href="{{ url_for('os_lista', **dict(f, status=st)) }}" style="text-decoration:none;color:inherit;{{ 'outline:2px solid var(--signal);' if f.status == st }}">
+  <div class="rot">{{ st }}</div><div class="val">{{ resumo.get(st, 0) }}</div></a>
+ {% endfor %}
+</div>
+
+<form class="filtros no-print">
+ <input class="grow" type="search" name="q" value="{{ f.q }}" placeholder="Nº da OS, edital, órgão, local ou equipe">
+ <select name="edital_id" style="width:auto;max-width:260px"><option value="">Todos os contratos</option>{% for e in editais %}<option value="{{ e.id }}" {% if e.id|string == f.edital_id %}selected{% endif %}>{{ e.numero }} — {{ e.orgao }}</option>{% endfor %}</select>
+ <select name="tipo" style="width:auto"><option value="">Todos os tipos</option>{% for t in TIPOS %}<option {% if t == f.tipo %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+ <select name="status" style="width:auto"><option value="">Todas as situações</option>{% for s in STATUS %}<option {% if s == f.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+ <input type="date" name="de" value="{{ f.de }}" title="De" style="width:auto">
+ <input type="date" name="ate" value="{{ f.ate }}" title="Até" style="width:auto">
+ <button class="btn"><i class="bi bi-funnel"></i> Filtrar</button>
+ {% if qs %}<a href="{{ url_for('os_lista') }}" class="btn btn-ghost">Limpar</a>{% endif %}
+</form>
+
+<div class="card"><div class="tbl-wrap"><table class="tbl">
+ <thead><tr><th>OS</th><th>Tipo</th><th>Contrato</th><th>Local</th><th>Data</th><th class="num">Unid.</th><th>Checklist</th><th>Situação</th><th class="no-print"></th></tr></thead>
+ <tbody>
+ {% for o in lista %}{% set atrasada = o.status not in ('Concluída','Cancelada') and o.data_programada and o.data_programada < hoje %}
+ <tr><td><a class="forte mono" href="{{ url_for('os_ver', os_id=o.id) }}">{{ o.numero }}</a>{% if o.assinado_em %} <i class="bi bi-pen-fill t-ok" title="Assinada pelo cliente"></i>{% endif %}</td>
+  <td>{{ o.tipo }}</td>
+  <td><a href="{{ url_for('edital_ver', eid=o.edital_id) }}#ordens">{{ o.edital_numero }}</a><span class="sub">{{ o.orgao|truncate(42) }}</span></td>
+  <td><small>{{ o.local or '' }}</small>{% if o.equipe %}<span class="sub"><i class="bi bi-person"></i> {{ o.equipe }}</span>{% endif %}</td>
+  <td class="nowrap">{% if o.data_execucao %}{{ o.data_execucao|data }}{% else %}<span class="{{ 't-danger' if atrasada }}">{{ o.data_programada|data }}</span><span class="sub">{{ 'atrasada' if atrasada else 'programada' }}</span>{% endif %}</td>
+  <td class="num">{{ o.qtd_itens|num }}</td>
+  <td>{% if o.ck_total %}{% set resp = o.ck_ok + o.ck_nc + o.ck_na %}
+   <div class="bar" style="max-width:110px"><span style="width:{{ (resp / o.ck_total * 100)|round }}%;{{ 'background:var(--danger)' if o.ck_nc }}"></span></div>
+   <div class="bar-lbl">{{ resp }}/{{ o.ck_total }}{% if o.ck_nc %} · <span class="t-danger">{{ o.ck_nc }} NC</span>{% endif %}</div>{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td><span class="badge {{ badge_status(o.status) }}">{{ o.status }}</span></td>
+  <td class="acao no-print"><a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('os_pdf', os_id=o.id) }}" target="_blank" title="Abrir PDF" aria-label="Abrir PDF"><i class="bi bi-filetype-pdf"></i></a></td></tr>
+ {% else %}<tr><td colspan="9"><div class="empty"><i class="bi bi-clipboard2"></i>Nenhuma ordem de serviço {{ 'no filtro escolhido' if qs else 'cadastrada ainda' }}.</div></td></tr>{% endfor %}
+ </tbody></table></div></div>
+{% endblock %}

@@ -32,6 +32,9 @@ def coletar_alertas(db, empresa_id=None):
         "entregas": q("""SELECT em.*, e.numero AS edital_numero, e.orgao FROM empenhos em JOIN editais e ON e.id=em.edital_id
             WHERE COALESCE(em.data_entrega,'') = '' AND COALESCE(em.prazo_entrega,'') != ''
             AND em.prazo_entrega <= date('now','localtime','+7 days') {F} ORDER BY em.prazo_entrega"""),
+        "ordens": q("""SELECT os.*, e.numero AS edital_numero, e.orgao FROM ordens_servico os JOIN editais e ON e.id=os.edital_id
+            WHERE os.status NOT IN ('Concluída','Cancelada') AND COALESCE(os.data_programada,'') != ''
+            AND os.data_programada <= date('now','localtime','+2 days') {F} ORDER BY os.data_programada, os.hora_programada"""),
         "devolucoes": q("""SELECT al.*, a.nome AS ativo_nome, a.unidade, e.numero, e.orgao FROM alocacoes al
             JOIN ativos a ON a.id=al.ativo_id JOIN editais e ON e.id=al.edital_id
             WHERE COALESCE(al.data_retorno,'') = '' AND COALESCE(al.data_prevista_retorno,'') != ''
@@ -60,6 +63,9 @@ def montar_html(al):
         ("Entregas de empenhos/OF vencidas ou em até 7 dias", al["entregas"],
          lambda r: f"{r['edital_numero']} — {r['orgao']}: {r['tipo'] or 'Empenho'} {r['numero']} · prazo "
                    f"<b>{_d(r['prazo_entrega'])}</b>{' (ATRASADO)' if r['prazo_entrega'] < hoje else ''}"),
+        ("Ordens de serviço atrasadas ou programadas para os próximos 2 dias", al["ordens"],
+         lambda r: f"OS {r['numero']} ({r['tipo']}) — {r['edital_numero']} {r['orgao']} · {r['local'] or ''} · "
+                   f"programada <b>{_d(r['data_programada'])}</b>{' (ATRASADA)' if r['data_programada'] < hoje else ''}"),
         ("Garantias vencidas ou vencendo em 30 dias", al["garantias"],
          lambda r: f"{r['numero']} — {r['orgao']}: {r['tipo'] or ''} {r['descricao']} · {_brl(r['valor'])} · "
                    f"fim <b>{_d(r['data_fim'])}</b>"),
@@ -72,7 +78,7 @@ def montar_html(al):
          lambda r: f"{r['numero']} — {r['orgao']}: {r['descricao']} · {_d(r['data_prevista'])} · "
                    f"<b>{_brl(r['valor_previsto'] - r['valor_recebido'] - r['retencoes'])}</b>"),
     ]
-    partes = [f"<h2 style='font-family:sans-serif'>Controle de Licitações — pendências de {_d(hoje)}</h2>"]
+    partes = [f"<h2 style='font-family:sans-serif'>ELLOMAX · Controle de contratos — pendências de {_d(hoje)}</h2>"]
     for titulo, linhas, fmt in secoes:
         if not linhas:
             continue

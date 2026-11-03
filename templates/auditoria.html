@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% block title %}Auditoria{% endblock %}
 {% block content %}
-<h4 class="mb-3">Auditoria <small class="text-muted fs-6">(últimos 500 registros)</small></h4>
-<div class="card"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
- <thead class="table-light"><tr><th>Data/hora (UTC)</th><th>Usuário</th><th>Ação</th><th>Entidade</th><th>Detalhe</th></tr></thead>
- <tbody>{% for l in logs %}<tr><td><small>{{ l.em }}</small></td><td>{{ l.usuario_nome or '' }}</td><td>{{ l.acao }}</td><td>{{ l.entidade }}{% if l.entidade_id %} #{{ l.entidade_id }}{% endif %}</td><td><small>{{ l.detalhe or '' }}</small></td></tr>
- {% else %}<tr><td colspan="5" class="text-muted text-center py-3">Sem registros.</td></tr>{% endfor %}</tbody>
+<div class="page-head"><div><div class="eyebrow">Administração</div><h1>Auditoria</h1><div class="sub">Últimos 500 registros (horário UTC).</div></div></div>
+<div class="card"><div class="tbl-wrap"><table class="tbl compacta">
+ <thead><tr><th>Data/hora</th><th>Usuário</th><th>Ação</th><th>Entidade</th><th>Detalhe</th></tr></thead>
+ <tbody>{% for l in logs %}<tr><td class="mono nowrap"><small>{{ l.em }}</small></td><td>{{ l.usuario_nome or '' }}</td><td><span class="badge plain">{{ l.acao }}</span></td><td>{{ l.entidade }}{% if l.entidade_id %} <span class="muted mono">#{{ l.entidade_id }}</span>{% endif %}</td><td><small>{{ l.detalhe or '' }}</small></td></tr>
+ {% else %}<tr><td colspan="5"><div class="empty">Sem registros.</div></td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% endblock %}
