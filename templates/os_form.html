@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Nova ordem de serviço' if novo else 'Editar OS ' ~ o.numero }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('os_lista') }}">Ordens de serviço</a> / {{ 'Nova' if novo else o.numero }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">Ordem de serviço</div><h1>{{ 'Nova ordem de serviço' if novo else 'Editar OS ' ~ o.numero }}</h1>
+ {% if novo %}<div class="sub">O número é gerado automaticamente. Depois de salvar você inclui equipamentos, preenche o checklist, anexa fotos e colhe a assinatura do cliente.</div>{% endif %}</div></div>
+<form method="post">
+ <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="voltar" value="{{ voltar }}">
+ <div class="card"><div class="card-body"><div class="form-grid">
+  <div class="secao-form">Contrato e serviço</div>
+  <div class="field c-6"><label for="edital_id">Contrato / edital <span class="req">*</span></label>
+   <select id="edital_id" name="edital_id" required data-edital-select><option value="">—</option>
+    {% for e in editais %}<option value="{{ e.id }}" data-local="{{ e.local_entrega or '' }}" {% if e.id|string == valores.get('edital_id')|string %}selected{% endif %}>{{ e.numero }} — {{ e.orgao }}</option>{% endfor %}</select></div>
+  <div class="field c-6"><label for="empenho_id">Empenho / ordem de fornecimento</label>
+   <select id="empenho_id" name="empenho_id" data-empenho-select><option value="">Nenhum</option>
+    {% for m in empenhos %}<option value="{{ m.id }}" data-edital="{{ m.edital_id }}" {% if m.id|string == valores.get('empenho_id')|string %}selected{% endif %}>{{ m.tipo or 'Empenho' }} {{ m.numero }}</option>{% endfor %}</select></div>
+  <div class="field c-4"><label for="tipo">Tipo de serviço <span class="req">*</span></label>
+   <select id="tipo" name="tipo" required data-tipo-os>{% for t in TIPOS %}<option {% if t == valores.get('tipo') %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="field c-4"><label for="status">Situação</label>
+   <select id="status" name="status">{% for s in STATUS %}<option {% if s == valores.get('status') %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+   <div class="hint">"Aberta" com data programada vira "Agendada".</div></div>
+  <div class="field c-4"><label for="solicitante">Solicitante no órgão</label><input type="text" id="solicitante" name="solicitante" value="{{ valores.get('solicitante') or '' }}" placeholder="Nome / setor"></div>
+  <div class="field"><label for="local">Local do serviço</label><input type="text" id="local" name="local" value="{{ valores.get('local') or '' }}" placeholder="Endereço, unidade, ponto de referência"></div>
+  <div class="field"><label for="descricao">Serviço solicitado</label><textarea id="descricao" name="descricao" rows="3" placeholder="Ex.: instalar 10 banheiros químicos standard e 2 PNE no evento X">{{ valores.get('descricao') or '' }}</textarea></div>
+
+  <div class="secao-form">Agenda e equipe</div>
+  <div class="field c-3"><label for="data_programada">Data programada</label><input type="date" id="data_programada" name="data_programada" value="{{ valores.get('data_programada') or '' }}"></div>
+  <div class="field c-3"><label for="hora_programada">Hora</label><input type="time" id="hora_programada" name="hora_programada" value="{{ valores.get('hora_programada') or '' }}"></div>
+  <div class="field c-3"><label for="equipe">Equipe / técnico</label><input type="text" id="equipe" name="equipe" value="{{ valores.get('equipe') or '' }}"></div>
+  <div class="field c-3"><label for="veiculo">Veículo / placa</label><input type="text" id="veiculo" name="veiculo" value="{{ valores.get('veiculo') or '' }}"></div>
+
+  {% if not novo %}
+  <div class="secao-form">Execução</div>
+  <div class="field c-4"><label for="data_execucao">Executada em</label><input type="date" id="data_execucao" name="data_execucao" value="{{ valores.get('data_execucao') or '' }}"></div>
+  <div class="field c-4"><label for="hora_inicio">Início</label><input type="time" id="hora_inicio" name="hora_inicio" value="{{ valores.get('hora_inicio') or '' }}"></div>
+  <div class="field c-4"><label for="hora_fim">Término</label><input type="time" id="hora_fim" name="hora_fim" value="{{ valores.get('hora_fim') or '' }}"></div>
+  <div class="field"><label for="ocorrencias">Ocorrências e observações</label><textarea id="ocorrencias" name="ocorrencias" rows="3">{{ valores.get('ocorrencias') or '' }}</textarea></div>
+  {% else %}
+  <div class="secao-form">Checklist e equipamentos</div>
+  <div class="field c-6"><label for="modelo_id">Modelo de checklist</label>
+   <select id="modelo_id" name="modelo_id" data-modelo-select><option value="">Sem checklist</option>
+    {% for m in modelos %}<option value="{{ m.id }}" data-tipo="{{ m.tipo_os or '' }}" {% if m.id|string == valores.get('modelo_id')|string %}selected{% endif %}>{{ m.nome }}</option>{% endfor %}</select>
+   <div class="hint">Os itens são copiados para a OS e podem ser ajustados nela. <a href="{{ url_for('checklists') }}">Gerenciar modelos</a></div></div>
+  <div class="field c-6"><span class="lbl">&nbsp;</span><label class="check"><input type="checkbox" name="importar_ativos" value="1" {% if valores.get('importar_ativos') %}checked{% endif %}> Listar os ativos já alocados neste contrato</label>
+   <div class="hint">Útil em manutenção e recolhimento. Pode editar as quantidades depois.</div></div>
+  {% endif %}
+ </div>
+ <div class="form-acoes"><button class="btn btn-primary"><i class="bi bi-check-lg"></i> {{ 'Criar OS' if novo else 'Salvar' }}</button><a href="{{ voltar }}" class="btn btn-ghost">Cancelar</a></div>
+ </div></div>
+</form>
+{% endblock %}

@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block title %}Aviso{% endblock %}
 {% block content %}
-<div class="text-center mt-5"><h4>{{ msg }}</h4><a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-3">Voltar ao painel</a></div>
+<div class="card xnarrow" style="margin-top:40px"><div class="empty"><i class="bi bi-sign-stop"></i><h2 style="font-size:18px;color:var(--ink);margin-bottom:14px">{{ msg }}</h2>
+ <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Voltar ao painel</a></div></div>
 {% endblock %}

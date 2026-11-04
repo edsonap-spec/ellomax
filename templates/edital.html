@@ -1,205 +1,222 @@
 {% extends "base.html" %}
+{% block title %}Edital {{ e.numero }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('editais') }}">Editais</a> / {{ e.numero }}{% endblock %}
+{% macro excluir(url, msg='Excluir este registro?') %}<form method="post" action="{{ url }}" class="inline" data-confirm="{{ msg }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-icon btn-ghost t-danger" title="Excluir" aria-label="Excluir"><i class="bi bi-trash3"></i></button></form>{% endmacro %}
 {% macro acoes(tipo, row) %}
- {% if pode_editar() %}
- <td class="text-end no-print" style="white-space:nowrap">
-  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('filho_editar', eid=e.id, tipo=tipo, fid=row.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
-  {{ excluir(url_for('filho_excluir', eid=e.id, tipo=tipo, fid=row.id)) }}
+ {% if pode_editar() %}<td class="acao no-print"><span class="btns">
+  <a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('filho_editar', eid=e.id, tipo=tipo, fid=row.id) }}" title="Editar" aria-label="Editar"><i class="bi bi-pencil"></i></a>
+  {{ excluir(url_for('filho_excluir', eid=e.id, tipo=tipo, fid=row.id)) }}</span>
  </td>{% endif %}
 {% endmacro %}
-{% macro excluir(url, msg='Excluir este registro?') %}<form method="post" action="{{ url }}" class="d-inline" data-confirm="{{ msg }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-outline-danger" title="Excluir"><i class="bi bi-trash"></i></button></form>{% endmacro %}
-{% macro cabecalho(id, titulo, tipo, botao, url=None) %}
-<div class="card-header bg-white d-flex justify-content-between align-items-center">
- <span class="fw-semibold">{{ titulo }}</span>
- {% if pode_editar() and botao %}<a href="{{ url or url_for('filho_novo', eid=e.id, tipo=tipo) }}" class="btn btn-sm btn-primary no-print"><i class="bi bi-plus-lg"></i> {{ botao }}</a>{% endif %}
-</div>
+{% macro cabecalho(titulo, icone, qtd, tipo, botao, url=None) %}
+<div class="card-head"><h2><i class="bi {{ icone }}"></i> {{ titulo }} <span class="cnt">{{ qtd }}</span></h2>
+ {% if pode_editar() and botao %}<a href="{{ url or url_for('filho_novo', eid=e.id, tipo=tipo) }}" class="btn btn-sm no-print"><i class="bi bi-plus-lg"></i> {{ botao }}</a>{% endif %}</div>
 {% endmacro %}
+{% macro vazio(txt, cols) %}<tr><td colspan="{{ cols }}"><div class="empty">{{ txt }}</div></td></tr>{% endmacro %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+<div class="page-head">
  <div>
-  <a href="{{ url_for('editais') }}" class="small no-print">&larr; Editais</a>
-  <h4 class="mb-0">Edital {{ e.numero }} <span class="badge text-bg-secondary fs-6 align-middle">{{ e.status }}</span></h4>
-  <div class="text-muted">{{ e.orgao }} <span class="small">· {{ e.empresa or '' }}</span></div>
+  <div class="eyebrow"><span>{{ e.modalidade or 'Edital' }}</span><span class="badge {{ badge_status(e.status) }}">{{ e.status }}</span></div>
+  <h1>Edital {{ e.numero }}</h1>
+  <div class="sub">{{ e.orgao }}{% if e.empresa %} <span class="muted">· {{ e.empresa }}</span>{% endif %}</div>
  </div>
- <div class="no-print d-flex flex-wrap gap-2">
-  <a href="{{ url_for('edital_pdf', eid=e.id) }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
-  <a href="{{ url_for('edital_xlsx', eid=e.id) }}" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Excel</a>
-  {% if pode_editar() %}<a href="{{ url_for('edital_editar', eid=e.id) }}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Editar</a>{% endif %}
+ <div class="acoes no-print">
+  {% if pode_editar() %}<a href="{{ url_for('os_nova', edital_id=e.id) }}" class="btn btn-signal"><i class="bi bi-clipboard2-plus"></i> Nova OS</a>{% endif %}
+  <a href="{{ url_for('edital_pdf', eid=e.id) }}" class="btn"><i class="bi bi-filetype-pdf"></i> PDF</a>
+  <a href="{{ url_for('edital_xlsx', eid=e.id) }}" class="btn"><i class="bi bi-file-earmark-spreadsheet"></i> Excel</a>
+  {% if pode_editar() %}<a href="{{ url_for('edital_editar', eid=e.id) }}" class="btn"><i class="bi bi-pencil"></i> Editar</a>{% endif %}
   {% if g.user.perfil == 'admin' %}
-  <form method="post" action="{{ url_for('edital_excluir', eid=e.id) }}" data-confirm="Excluir o edital e TODOS os itens, empenhos, gastos, recebimentos, garantias, aditivos e anexos dele?">
-   <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-outline-danger" title="Excluir edital"><i class="bi bi-trash"></i></button></form>
+  <form method="post" action="{{ url_for('edital_excluir', eid=e.id) }}" class="inline" data-confirm="Excluir o edital e TODOS os itens, empenhos, OS, gastos, recebimentos, garantias, aditivos e anexos dele?">
+   <input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-danger btn-icon" title="Excluir edital" aria-label="Excluir edital"><i class="bi bi-trash3"></i></button></form>
   {% endif %}
  </div>
 </div>
 
-<nav class="nav nav-pills small mb-3 no-print">
- {% for ancora, rot, qtd in [('itens','Itens',itens|length), ('empenhos','Empenhos/OF',empenhos|length), ('recebimentos','Recebimentos',receb|length), ('gastos','Gastos',gastos|length), ('aditivos','Aditivos',aditivos|length), ('garantias','Garantias',garantias|length), ('ativos','Ativos',alocacoes|selectattr('data_retorno','none')|list|length), ('anexos','Anexos',anexos|length)] %}
- <a class="nav-link py-1" href="#{{ ancora }}">{{ rot }} <span class="badge text-bg-light border">{{ qtd }}</span></a>
+<nav class="subnav no-print" aria-label="Seções do edital">
+ {% for ancora, rot, qtd in [('dados','Dados',None), ('itens','Itens',itens|length), ('empenhos','Empenhos/OF',empenhos|length), ('ordens','Ordens de serviço',ordens|length), ('recebimentos','Recebimentos',receb|length), ('gastos','Gastos',gastos|length), ('aditivos','Aditivos',aditivos|length), ('garantias','Garantias',garantias|length), ('ativos','Ativos',alocacoes|selectattr('data_retorno','none')|list|length), ('anexos','Anexos',anexos|length)] %}
+ <a href="#{{ ancora }}" class="{{ 'dest' if ancora == 'ordens' }}">{{ rot }}{% if qtd is not none %} <span class="cnt">{{ qtd }}</span>{% endif %}</a>
  {% endfor %}
 </nav>
 
-<div class="row g-3 mb-4">
- {% for rot, val, cor, sub in [
-   ('Valor contratado', r.contratado, 'primary', ('Itens ' ~ (r.contratado_itens|brl) ~ ' + aditivos ' ~ (r.aditivos|brl)) if r.aditivos else 'Soma dos itens vencidos'),
-   ('Empenhado', r.empenhado, 'secondary', (r.pct_empenhado|pct) ~ ' · entregue ' ~ (r.entregue|brl)),
-   ('Recebido', r.liquidado, 'success', (r.pct_recebido|pct) ~ (' · retenções ' ~ (r.retencoes|brl) if r.retencoes else ' do contratado')),
-   ('Saldo a receber', r.a_receber, 'info', 'Em atraso: ' ~ (r.atrasado|brl)),
-   ('Gastos', r.gastos, 'warning', 'Impostos estimados (' ~ (r.aliquota|num) ~ '%): ' ~ (r.impostos_estimados|brl)),
-   ('Lucro projetado', r.lucro_projetado, 'dark', 'Margem ' ~ (r.margem_projetada|pct) ~ ' · caixa atual ' ~ (r.lucro_atual|brl))] %}
- <div class="col-6 col-md-4 col-xl-2"><div class="card kpi p-3 h-100 border-start border-4 border-{{ cor }}">
-  <div class="rotulo">{{ rot }}</div><div class="valor {{ 'text-danger' if val < -0.004 }}">{{ val|brl }}</div><small class="text-muted">{{ sub }}</small></div></div>
+<div class="kpis">
+ {% for rot, val, tom, sub in [
+   ('Valor contratado', r.contratado, 'tone-brand', ('Itens ' ~ (r.contratado_itens|brl) ~ ' + aditivos ' ~ (r.aditivos|brl)) if r.aditivos else 'Soma dos itens vencidos'),
+   ('Empenhado', r.empenhado, 'tone-mute', (r.pct_empenhado|pct) ~ ' · entregue ' ~ (r.entregue|brl)),
+   ('Recebido', r.liquidado, 'tone-ok', (r.pct_recebido|pct) ~ (' · retenções ' ~ (r.retencoes|brl) if r.retencoes else ' do contratado')),
+   ('Saldo a receber', r.a_receber, 'tone-info', 'Em atraso: ' ~ (r.atrasado|brl)),
+   ('Gastos', r.gastos, 'tone-warn', 'Impostos estimados (' ~ (r.aliquota|num) ~ '%): ' ~ (r.impostos_estimados|brl)),
+   ('Lucro projetado', r.lucro_projetado, 'tone-ink', 'Margem ' ~ (r.margem_projetada|pct) ~ ' · caixa atual ' ~ (r.lucro_atual|brl))] %}
+ <div class="kpi {{ tom }} {{ 'neg' if val < -0.004 }}"><div class="rot">{{ rot }}</div><div class="val">{{ val|brl }}</div><div class="sub">{{ sub }}</div></div>
  {% endfor %}
 </div>
 
-<div class="card mb-4"><div class="card-header bg-white fw-semibold">Dados do edital</div><div class="card-body">
- <dl class="row mb-0 small">
+<div class="card" id="dados"><div class="card-head"><h2><i class="bi bi-info-square"></i> Dados do edital</h2></div>
+ <dl class="dados">
   {% for rot, val in [('Órgão', e.orgao), ('CNPJ do órgão', e.cnpj_orgao), ('UASG / Código', e.uasg), ('Nº do processo', e.processo),
      ('Modalidade', e.modalidade), ('Nº do contrato / ata', e.numero_contrato), ('Data da abertura', e.data_abertura|data),
      ('Homologação', e.data_homologacao|data), ('Vigência', (e.vigencia_inicio|data) ~ ' a ' ~ (e.vigencia_fim|data) if e.vigencia_inicio or e.vigencia_fim else ''),
      ('Prazo de entrega', e.prazo_entrega), ('Local de entrega', e.local_entrega), ('Responsável interno', e.responsavel),
      ('Contato no órgão', e.contato_orgao)] %}
-  <dt class="col-sm-3 col-lg-2 text-muted fw-normal">{{ rot }}</dt><dd class="col-sm-9 col-lg-4">{{ val or '—' }}</dd>
+  <div><dt>{{ rot }}</dt><dd>{{ val or '—' }}</dd></div>
   {% endfor %}
-  <dt class="col-sm-3 col-lg-2 text-muted fw-normal">Link</dt><dd class="col-sm-9 col-lg-4">{% if e.link_edital %}<a href="{{ e.link_edital }}" target="_blank" rel="noopener">abrir</a>{% else %}—{% endif %}</dd>
-  <dt class="col-sm-3 col-lg-2 text-muted fw-normal">Objeto</dt><dd class="col-sm-9 col-lg-10" style="white-space:pre-line">{{ e.objeto }}</dd>
-  {% if e.observacoes %}<dt class="col-sm-3 col-lg-2 text-muted fw-normal">Observações</dt><dd class="col-sm-9 col-lg-10" style="white-space:pre-line">{{ e.observacoes }}</dd>{% endif %}
+  <div><dt>Link</dt><dd>{% if e.link_edital %}<a href="{{ e.link_edital }}" target="_blank" rel="noopener">abrir <i class="bi bi-box-arrow-up-right"></i></a>{% else %}—{% endif %}</dd></div>
+  <div class="largo"><dt>Objeto</dt><dd class="pre">{{ e.objeto }}</dd></div>
+  {% if e.observacoes %}<div class="largo"><dt>Observações</dt><dd class="pre">{{ e.observacoes }}</dd></div>{% endif %}
  </dl>
-</div></div>
-
-<div class="card mb-4" id="itens">{{ cabecalho('itens', 'Itens vencidos', 'itens', 'Item') }}
-<div class="table-responsive"><table class="table table-sm table-hover mb-0">
- <thead class="table-light"><tr><th>Lote</th><th>Item</th><th>Descrição</th><th>Marca</th><th>Un.</th><th class="text-num">Qtd.</th><th class="text-num">Vlr. unit.</th><th class="text-num">Total</th><th class="text-num">Empenhado</th><th class="text-num">A empenhar</th><th class="text-num">Entregue</th><th class="text-num">Saldo a entregar</th><th class="text-num">Margem</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
- <tbody>
- {% for i in itens %}{% set tot = i.quantidade * i.valor_unitario %}
- <tr><td>{{ i.lote or '' }}</td><td>{{ i.numero_item or '' }}</td><td><small>{{ i.descricao }}</small></td><td><small>{{ i.marca or '' }}</small></td><td>{{ i.unidade or '' }}</td>
-  <td class="text-num">{{ i.quantidade|num }}</td><td class="text-num">{{ i.valor_unitario|brl }}</td><td class="text-num fw-semibold">{{ tot|brl }}</td>
-  <td class="text-num">{{ i.empenhado|num }}</td><td class="text-num {{ 'text-danger' if i.quantidade - i.empenhado < 0 }}">{{ (i.quantidade - i.empenhado)|num }}</td>
-  <td class="text-num">{{ i.qtd_entregue|num }}</td><td class="text-num {{ 'text-danger' if i.quantidade - i.qtd_entregue < 0 }}">{{ (i.quantidade - i.qtd_entregue)|num }}</td>
-  <td class="text-num" title="Custo unitário: {{ i.custo_unitario|brl if i.custo_unitario is not none else 'não informado' }}">{% if i.custo_unitario is not none and i.valor_unitario %}{{ ((i.valor_unitario - i.custo_unitario) / i.valor_unitario * 100)|pct }}{% else %}—{% endif %}</td>
-  {{ acoes('itens', i) }}</tr>
- {% else %}<tr><td colspan="14" class="text-muted text-center py-3">Nenhum item cadastrado.</td></tr>{% endfor %}
- </tbody>
- {% if itens %}<tfoot class="table-light"><tr><th colspan="7">Total</th><th class="text-num">{{ r.contratado_itens|brl }}</th><th colspan="6"></th></tr></tfoot>{% endif %}
-</table></div></div>
-
-<div class="card mb-4" id="empenhos">{{ cabecalho('empenhos', 'Empenhos e ordens de fornecimento', 'empenhos', 'Empenho / OF', url_for('empenho_novo', eid=e.id)) }}
-<div class="table-responsive"><table class="table table-sm table-hover mb-0">
- <thead class="table-light"><tr><th>Tipo</th><th>Número</th><th>Emissão</th><th>Prazo de entrega</th><th>Entregue em</th><th>Itens</th><th class="text-num">Valor</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
- <tbody>
- {% for m in empenhos %}
- <tr><td><small>{{ m.tipo or '' }}</small></td><td>{{ m.numero }}{% if m.observacoes %}<br><small class="text-muted">{{ m.observacoes }}</small>{% endif %}</td><td>{{ m.data_emissao|data }}</td><td>{{ m.prazo_entrega|data }}</td><td>{{ m.data_entrega|data }}</td>
-  <td><small>{% for li in linhas_emp.get(m.id, []) %}{{ li.numero_item or '-' }}: {{ li.quantidade|num }} {{ li.unidade or '' }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}</small></td>
-  <td class="text-num">{{ (m.valor_itens or m.valor)|brl }}</td>
-  <td>{% if m.data_entrega %}<span class="badge text-bg-success">Entregue</span>{% elif m.prazo_entrega and m.prazo_entrega < hoje %}<span class="badge text-bg-danger">Entrega atrasada</span>{% else %}<span class="badge text-bg-light text-dark border">A entregar</span>{% endif %}</td>
-  {% if pode_editar() %}<td class="text-end no-print" style="white-space:nowrap">
-   {% if not m.data_entrega %}<form method="post" action="{{ url_for('empenho_entregue', eid=e.id, fid=m.id) }}" class="d-inline" data-confirm="Registrar a entrega hoje? As quantidades serão somadas ao entregue dos itens."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-outline-success" title="Marcar como entregue hoje"><i class="bi bi-truck"></i></button></form>{% endif %}
-   <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('empenho_editar', eid=e.id, fid=m.id) }}"><i class="bi bi-pencil"></i></a>
-   {{ excluir(url_for('empenho_excluir', eid=e.id, fid=m.id), 'Excluir este empenho/OF?' ~ (' As quantidades entregues serão estornadas.' if m.data_entrega else '')) }}
-  </td>{% endif %}</tr>
- {% else %}<tr><td colspan="9" class="text-muted text-center py-3">Nenhum empenho ou ordem de fornecimento lançado.</td></tr>{% endfor %}
- </tbody>
- {% if empenhos %}<tfoot class="table-light"><tr><th colspan="6">Total empenhado</th><th class="text-num">{{ r.empenhado|brl }}</th><th colspan="2" class="small fw-normal text-muted">Saldo a empenhar: {{ (r.contratado - r.empenhado)|brl }}</th></tr></tfoot>{% endif %}
-</table></div></div>
-
-<div class="card mb-4" id="recebimentos">{{ cabecalho('recebimentos', 'Recebimentos — previsto × recebido', 'recebimentos', 'Recebimento') }}
-<div class="table-responsive"><table class="table table-sm table-hover mb-0">
- <thead class="table-light"><tr><th>Descrição</th><th>Empenho / OF</th><th>NF</th><th>Previsto em</th><th class="text-num">Valor previsto</th><th>Recebido em</th><th class="text-num">Valor recebido</th><th class="text-num">Retenções</th><th class="text-num">Diferença</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
- <tbody>
- {% for x in receb %}{% set falta = x.valor_previsto - x.valor_recebido - x.retencoes %}{% set atrasado = falta > 0.004 and x.data_prevista and x.data_prevista < hoje %}
- <tr><td>{{ x.descricao }}{% if x.observacoes %}<br><small class="text-muted">{{ x.observacoes }}</small>{% endif %}</td><td>{{ x.empenho or '' }}</td><td>{{ x.nota_fiscal or '' }}</td>
-  <td>{{ x.data_prevista|data }}</td><td class="text-num">{{ x.valor_previsto|brl }}</td><td>{{ x.data_recebimento|data }}</td><td class="text-num">{{ x.valor_recebido|brl }}</td>
-  <td class="text-num">{{ x.retencoes|brl if x.retencoes else '' }}</td>
-  <td class="text-num {{ 'text-danger' if atrasado }}">{{ falta|brl }}</td>
-  <td>{% if falta <= 0.004 %}<span class="badge text-bg-success">Recebido</span>
-      {% elif atrasado %}<span class="badge text-bg-danger">Atrasado</span>
-      {% elif x.valor_recebido > 0 %}<span class="badge text-bg-warning">Parcial</span>
-      {% else %}<span class="badge text-bg-light text-dark border">A receber</span>{% endif %}</td>
-  {% if pode_editar() %}<td class="text-end no-print" style="white-space:nowrap">
-   {% if falta > 0.004 %}<form method="post" action="{{ url_for('receb_baixar', eid=e.id, fid=x.id) }}" class="d-inline" data-confirm="Marcar como recebido hoje pelo valor previsto (menos retenções)?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-outline-success" title="Dar baixa (recebido hoje)"><i class="bi bi-check2-circle"></i></button></form>{% endif %}
-   <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('filho_editar', eid=e.id, tipo='recebimentos', fid=x.id) }}"><i class="bi bi-pencil"></i></a>
-   {{ excluir(url_for('filho_excluir', eid=e.id, tipo='recebimentos', fid=x.id)) }}
-  </td>{% endif %}</tr>
- {% else %}<tr><td colspan="11" class="text-muted text-center py-3">Nenhum recebimento lançado.</td></tr>{% endfor %}
- </tbody>
- {% if receb %}<tfoot class="table-light"><tr><th colspan="4">Total</th><th class="text-num">{{ r.previsto|brl }}</th><th></th><th class="text-num">{{ r.recebido|brl }}</th><th class="text-num">{{ r.retencoes|brl }}</th><th class="text-num">{{ (r.previsto - r.liquidado)|brl }}</th><th colspan="2"></th></tr></tfoot>{% endif %}
-</table></div>
-{% if receb and (r.previsto - r.contratado)|abs > 0.01 %}<div class="card-footer bg-white small text-muted">Atenção: o total previsto nos recebimentos ({{ r.previsto|brl }}) é diferente do valor contratado ({{ r.contratado|brl }}).</div>{% endif %}
 </div>
 
-<div class="card mb-4" id="gastos">{{ cabecalho('gastos', 'Gastos', 'gastos', 'Gasto') }}
-<div class="row g-0">
- <div class="col-lg-9"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
-  <thead class="table-light"><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Fornecedor</th><th>Documento</th><th class="text-num">Valor</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+<div class="card" id="itens">{{ cabecalho('Itens vencidos', 'bi-list-ol', itens|length, 'itens', 'Item') }}
+<div class="tbl-wrap"><table class="tbl compacta">
+ <thead><tr><th>Lote</th><th>Item</th><th>Descrição</th><th>Un.</th><th class="num">Qtd.</th><th class="num">Vlr. unit.</th><th class="num">Total</th><th class="num">Empenhado</th><th class="num">A empenhar</th><th class="num">Entregue</th><th class="num">A entregar</th><th class="num">Margem</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+ <tbody>
+ {% for i in itens %}{% set tot = i.quantidade * i.valor_unitario %}
+ <tr><td>{{ i.lote or '' }}</td><td>{{ i.numero_item or '' }}</td><td><small>{{ i.descricao }}</small>{% if i.marca %}<span class="sub">{{ i.marca }}</span>{% endif %}</td><td>{{ i.unidade or '' }}</td>
+  <td class="num">{{ i.quantidade|num }}</td><td class="num">{{ i.valor_unitario|brl }}</td><td class="num"><b>{{ tot|brl }}</b></td>
+  <td class="num">{{ i.empenhado|num }}</td><td class="num {{ 't-danger' if i.quantidade - i.empenhado < 0 }}">{{ (i.quantidade - i.empenhado)|num }}</td>
+  <td class="num">{{ i.qtd_entregue|num }}</td><td class="num {{ 't-danger' if i.quantidade - i.qtd_entregue < 0 }}">{{ (i.quantidade - i.qtd_entregue)|num }}</td>
+  <td class="num" title="Custo unitário: {{ i.custo_unitario|brl if i.custo_unitario is not none else 'não informado' }}">{% if i.custo_unitario is not none and i.valor_unitario %}{{ ((i.valor_unitario - i.custo_unitario) / i.valor_unitario * 100)|pct }}{% else %}—{% endif %}</td>
+  {{ acoes('itens', i) }}</tr>
+ {% else %}{{ vazio('Nenhum item cadastrado.', 13) }}{% endfor %}
+ </tbody>
+ {% if itens %}<tfoot><tr><td colspan="6">Total</td><td class="num">{{ r.contratado_itens|brl }}</td><td colspan="6"></td></tr></tfoot>{% endif %}
+</table></div></div>
+
+<div class="card" id="empenhos">{{ cabecalho('Empenhos e ordens de fornecimento', 'bi-receipt', empenhos|length, 'empenhos', 'Empenho / OF', url_for('empenho_novo', eid=e.id)) }}
+<div class="tbl-wrap"><table class="tbl compacta">
+ <thead><tr><th>Número</th><th>Emissão</th><th>Prazo</th><th>Entregue em</th><th>Itens</th><th class="num">Valor</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+ <tbody>
+ {% for m in empenhos %}
+ <tr><td><b>{{ m.numero }}</b><span class="sub">{{ m.tipo or '' }}{% if m.observacoes %} · {{ m.observacoes }}{% endif %}</span></td><td>{{ m.data_emissao|data }}</td><td>{{ m.prazo_entrega|data }}</td><td>{{ m.data_entrega|data }}</td>
+  <td><small>{% for li in linhas_emp.get(m.id, []) %}{{ li.numero_item or '-' }}: {{ li.quantidade|num }} {{ li.unidade or '' }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}</small></td>
+  <td class="num">{{ (m.valor_itens or m.valor)|brl }}</td>
+  <td>{% if m.data_entrega %}<span class="badge b-ok">Entregue</span>{% elif m.prazo_entrega and m.prazo_entrega < hoje %}<span class="badge b-danger">Entrega atrasada</span>{% else %}<span class="badge">A entregar</span>{% endif %}</td>
+  {% if pode_editar() %}<td class="acao no-print"><span class="btns">
+   <a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('os_nova', edital_id=e.id, empenho_id=m.id) }}" title="Abrir OS para este empenho"><i class="bi bi-clipboard2-plus"></i></a>
+   {% if not m.data_entrega %}<form method="post" action="{{ url_for('empenho_entregue', eid=e.id, fid=m.id) }}" class="inline" data-confirm="Registrar a entrega hoje? As quantidades serão somadas ao entregue dos itens."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-icon btn-ghost t-ok" title="Marcar como entregue hoje"><i class="bi bi-truck"></i></button></form>{% endif %}
+   <a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('empenho_editar', eid=e.id, fid=m.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
+   {{ excluir(url_for('empenho_excluir', eid=e.id, fid=m.id), 'Excluir este empenho/OF?' ~ (' As quantidades entregues serão estornadas.' if m.data_entrega else '')) }}
+  </span></td>{% endif %}</tr>
+ {% else %}{{ vazio('Nenhum empenho ou ordem de fornecimento lançado.', 8) }}{% endfor %}
+ </tbody>
+ {% if empenhos %}<tfoot><tr><td colspan="5">Total empenhado <span class="muted" style="font-weight:400">· saldo a empenhar {{ (r.contratado - r.empenhado)|brl }}</span></td><td class="num">{{ r.empenhado|brl }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
+</table></div></div>
+
+<div class="card" id="ordens"><div class="card-head"><h2><i class="bi bi-clipboard2-check"></i> Ordens de serviço <span class="cnt">{{ ordens|length }}</span></h2>
+ <span class="acoes no-print">
+  {% if ordens %}<a href="{{ url_for('os_relatorio_pdf', edital_id=e.id) }}" class="btn btn-sm"><i class="bi bi-filetype-pdf"></i> Relatório do contrato</a>{% endif %}
+  {% if pode_editar() %}<a href="{{ url_for('os_nova', edital_id=e.id) }}" class="btn btn-sm"><i class="bi bi-plus-lg"></i> Nova OS</a>{% endif %}
+ </span></div>
+<div class="tbl-wrap"><table class="tbl compacta">
+ <thead><tr><th>OS</th><th>Tipo</th><th>Data</th><th>Local</th><th>Checklist</th><th>Recebido por</th><th>Situação</th><th class="no-print"></th></tr></thead>
+ <tbody>
+ {% for o in ordens %}
+ <tr><td><a class="forte mono" href="{{ url_for('os_ver', os_id=o.id) }}">{{ o.numero }}</a></td><td>{{ o.tipo }}</td><td class="nowrap">{{ (o.data_execucao or o.data_programada)|data }}</td><td><small>{{ o.local or '' }}</small></td>
+  <td>{% if o.ck_total %}{{ o.ck_total }} itens{% if o.ck_nc %} · <span class="t-danger">{{ o.ck_nc }} NC</span>{% endif %}{% else %}—{% endif %}</td>
+  <td><small>{{ o.recebedor_nome or '' }}</small></td><td><span class="badge {{ badge_status(o.status) }}">{{ o.status }}</span></td>
+  <td class="acao no-print"><a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('os_pdf', os_id=o.id) }}" target="_blank" title="PDF"><i class="bi bi-filetype-pdf"></i></a></td></tr>
+ {% else %}{{ vazio('Nenhuma ordem de serviço para este contrato.', 8) }}{% endfor %}
+ </tbody></table></div></div>
+
+<div class="card" id="recebimentos">{{ cabecalho('Recebimentos — previsto × recebido', 'bi-cash-coin', receb|length, 'recebimentos', 'Recebimento') }}
+<div class="tbl-wrap"><table class="tbl compacta">
+ <thead><tr><th>Descrição</th><th>Empenho / NF</th><th>Previsto em</th><th class="num">Previsto</th><th>Recebido em</th><th class="num">Recebido</th><th class="num">Retenções</th><th class="num">Diferença</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+ <tbody>
+ {% for x in receb %}{% set falta = x.valor_previsto - x.valor_recebido - x.retencoes %}{% set atrasado = falta > 0.004 and x.data_prevista and x.data_prevista < hoje %}
+ <tr><td>{{ x.descricao }}{% if x.observacoes %}<span class="sub">{{ x.observacoes }}</span>{% endif %}</td><td><small>{{ x.empenho or '' }}{% if x.nota_fiscal %}<span class="sub">NF {{ x.nota_fiscal }}</span>{% endif %}</small></td>
+  <td>{{ x.data_prevista|data }}</td><td class="num">{{ x.valor_previsto|brl }}</td><td>{{ x.data_recebimento|data }}</td><td class="num">{{ x.valor_recebido|brl }}</td>
+  <td class="num">{{ x.retencoes|brl if x.retencoes else '' }}</td>
+  <td class="num {{ 't-danger' if atrasado }}">{{ falta|brl }}</td>
+  <td>{% if falta <= 0.004 %}<span class="badge b-ok">Recebido</span>
+      {% elif atrasado %}<span class="badge b-danger">Atrasado</span>
+      {% elif x.valor_recebido > 0 %}<span class="badge b-warn">Parcial</span>
+      {% else %}<span class="badge">A receber</span>{% endif %}</td>
+  {% if pode_editar() %}<td class="acao no-print"><span class="btns">
+   {% if falta > 0.004 %}<form method="post" action="{{ url_for('receb_baixar', eid=e.id, fid=x.id) }}" class="inline" data-confirm="Marcar como recebido hoje pelo valor previsto (menos retenções)?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-icon btn-ghost t-ok" title="Dar baixa (recebido hoje)"><i class="bi bi-check2-circle"></i></button></form>{% endif %}
+   <a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('filho_editar', eid=e.id, tipo='recebimentos', fid=x.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
+   {{ excluir(url_for('filho_excluir', eid=e.id, tipo='recebimentos', fid=x.id)) }}
+  </span></td>{% endif %}</tr>
+ {% else %}{{ vazio('Nenhum recebimento lançado.', 10) }}{% endfor %}
+ </tbody>
+ {% if receb %}<tfoot><tr><td colspan="3">Total</td><td class="num">{{ r.previsto|brl }}</td><td></td><td class="num">{{ r.recebido|brl }}</td><td class="num">{{ r.retencoes|brl }}</td><td class="num">{{ (r.previsto - r.liquidado)|brl }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
+</table></div>
+{% if receb and (r.previsto - r.contratado)|abs > 0.01 %}<div class="card-foot"><i class="bi bi-exclamation-circle"></i> O total previsto nos recebimentos ({{ r.previsto|brl }}) é diferente do valor contratado ({{ r.contratado|brl }}).</div>{% endif %}
+</div>
+
+<div class="card" id="gastos">{{ cabecalho('Gastos', 'bi-wallet2', gastos|length, 'gastos', 'Gasto') }}
+<div class="split">
+ <div class="tbl-wrap"><table class="tbl compacta">
+  <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Fornecedor / doc.</th><th class="num">Valor</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
   <tbody>
   {% for x in gastos %}
-  <tr><td>{{ x.data|data }}</td><td><small>{{ x.categoria or '' }}</small></td><td>{{ x.descricao }}</td><td><small>{{ x.fornecedor or '' }}</small></td><td><small>{{ x.documento or '' }}</small></td><td class="text-num">{{ x.valor|brl }}</td>{{ acoes('gastos', x) }}</tr>
-  {% else %}<tr><td colspan="7" class="text-muted text-center py-3">Nenhum gasto lançado.</td></tr>{% endfor %}
+  <tr><td class="nowrap">{{ x.data|data }}</td><td><small>{{ x.categoria or '' }}</small></td><td>{{ x.descricao }}</td><td><small>{{ x.fornecedor or '' }}{% if x.documento %}<span class="sub">{{ x.documento }}</span>{% endif %}</small></td><td class="num">{{ x.valor|brl }}</td>{{ acoes('gastos', x) }}</tr>
+  {% else %}{{ vazio('Nenhum gasto lançado.', 6) }}{% endfor %}
   </tbody>
-  {% if gastos %}<tfoot class="table-light"><tr><th colspan="5">Total</th><th class="text-num">{{ r.gastos|brl }}</th><th></th></tr></tfoot>{% endif %}
- </table></div></div>
- <div class="col-lg-3 border-start"><div class="p-3 small"><div class="fw-semibold mb-2">Por categoria</div>
-  {% for c in gastos_cat %}<div class="d-flex justify-content-between"><span>{{ c.categoria }}</span><span class="text-num">{{ c.total|brl }}</span></div>
-  {% else %}<span class="text-muted">—</span>{% endfor %}
-  <hr><div class="fw-semibold mb-1">Projeção</div>
-  <div class="d-flex justify-content-between"><span>Custo estimado dos itens</span><span class="text-num">{{ r.custo_estimado|brl }}</span></div>
-  <div class="d-flex justify-content-between"><span>Impostos estimados ({{ r.aliquota|num }}%)</span><span class="text-num">{{ r.impostos_estimados|brl }}</span></div>
-  <div class="d-flex justify-content-between"><span>Custo total considerado</span><span class="text-num">{{ r.custo_previsto|brl }}</span></div>
-  <div class="text-muted mt-1" style="font-size:.75rem">Usa o maior valor entre o lançado e o estimado, separando custos e impostos (categoria "Impostos").</div>
- </div></div>
+  {% if gastos %}<tfoot><tr><td colspan="4">Total</td><td class="num">{{ r.gastos|brl }}</td><td></td></tr></tfoot>{% endif %}
+ </table></div>
+ <div class="lado">
+  <div class="lbl">Por categoria</div>
+  {% for c in gastos_cat %}<div class="linha-val"><span>{{ c.categoria }}</span><span>{{ c.total|brl }}</span></div>{% else %}<span class="muted">—</span>{% endfor %}
+  <div class="lbl" style="margin-top:16px">Projeção</div>
+  <div class="linha-val"><span>Custo estimado dos itens</span><span>{{ r.custo_estimado|brl }}</span></div>
+  <div class="linha-val"><span>Impostos estimados ({{ r.aliquota|num }}%)</span><span>{{ r.impostos_estimados|brl }}</span></div>
+  <div class="linha-val"><b>Custo total considerado</b><span><b>{{ r.custo_previsto|brl }}</b></span></div>
+  <div class="hint">Usa o maior valor entre o lançado e o estimado, separando custos e impostos (categoria "Impostos").</div>
+ </div>
 </div></div>
 
-<div class="card mb-4" id="aditivos">{{ cabecalho('aditivos', 'Termos aditivos e reajustes', 'aditivos', 'Aditivo') }}
-<div class="table-responsive"><table class="table table-sm table-hover mb-0">
- <thead class="table-light"><tr><th>Nº</th><th>Tipo</th><th>Assinatura</th><th>Descrição</th><th>Nova vigência</th><th class="text-num">Valor</th><th class="text-num">%</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+<div class="card" id="aditivos">{{ cabecalho('Termos aditivos e reajustes', 'bi-file-diff', aditivos|length, 'aditivos', 'Aditivo') }}
+<div class="tbl-wrap"><table class="tbl compacta">
+ <thead><tr><th>Nº</th><th>Tipo</th><th>Assinatura</th><th>Descrição</th><th>Nova vigência</th><th class="num">Valor</th><th class="num">%</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
  <tbody>
  {% for x in aditivos %}
  <tr><td>{{ x.numero or '' }}</td><td><small>{{ x.tipo }}</small></td><td>{{ x.data_assinatura|data }}</td><td><small>{{ x.descricao }}</small></td><td>{{ x.nova_vigencia_fim|data }}</td>
-  <td class="text-num {{ 'text-danger' if x.valor < 0 }}">{{ x.valor|brl if x.valor else '' }}</td><td class="text-num">{{ x.percentual|num ~ '%' if x.percentual is not none else '' }}</td>{{ acoes('aditivos', x) }}</tr>
- {% else %}<tr><td colspan="8" class="text-muted text-center py-3">Nenhum aditivo.</td></tr>{% endfor %}
+  <td class="num {{ 't-danger' if x.valor < 0 }}">{{ x.valor|brl if x.valor else '' }}</td><td class="num">{{ x.percentual|num ~ '%' if x.percentual is not none else '' }}</td>{{ acoes('aditivos', x) }}</tr>
+ {% else %}{{ vazio('Nenhum aditivo.', 8) }}{% endfor %}
  </tbody></table></div></div>
 
-<div class="card mb-4" id="garantias">{{ cabecalho('garantias', 'Garantias contratuais', 'garantias', 'Garantia') }}
-<div class="table-responsive"><table class="table table-sm table-hover mb-0">
- <thead class="table-light"><tr><th>Modalidade</th><th>Descrição</th><th class="text-num">%</th><th class="text-num">Valor</th><th>Apólice</th><th>Seguradora / banco</th><th>Vigência</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+<div class="card" id="garantias">{{ cabecalho('Garantias contratuais', 'bi-shield-check', garantias|length, 'garantias', 'Garantia') }}
+<div class="tbl-wrap"><table class="tbl compacta">
+ <thead><tr><th>Modalidade</th><th>Descrição</th><th class="num">%</th><th class="num">Valor</th><th>Apólice / emissor</th><th>Vigência</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
  <tbody>
  {% for x in garantias %}
- <tr><td><small>{{ x.tipo }}</small></td><td>{{ x.descricao }}</td><td class="text-num">{{ x.percentual|num ~ '%' if x.percentual is not none else '' }}</td><td class="text-num">{{ x.valor|brl }}</td><td>{{ x.apolice or '' }}</td><td><small>{{ x.seguradora or '' }}</small></td>
-  <td><small>{{ x.data_inicio|data }} a {{ x.data_fim|data }}</small></td>
-  <td>{% if x.data_devolucao %}<span class="badge text-bg-success">Devolvida {{ x.data_devolucao|data }}</span>{% elif x.data_fim and x.data_fim < hoje %}<span class="badge text-bg-danger">Vencida</span>{% else %}<span class="badge text-bg-primary">Vigente</span>{% endif %}</td>
+ <tr><td><small>{{ x.tipo }}</small></td><td>{{ x.descricao }}</td><td class="num">{{ x.percentual|num ~ '%' if x.percentual is not none else '' }}</td><td class="num">{{ x.valor|brl }}</td><td><small>{{ x.apolice or '' }}{% if x.seguradora %}<span class="sub">{{ x.seguradora }}</span>{% endif %}</small></td>
+  <td class="nowrap"><small>{{ x.data_inicio|data }} a {{ x.data_fim|data }}</small></td>
+  <td>{% if x.data_devolucao %}<span class="badge b-ok">Devolvida {{ x.data_devolucao|data }}</span>{% elif x.data_fim and x.data_fim < hoje %}<span class="badge b-danger">Vencida</span>{% else %}<span class="badge b-info">Vigente</span>{% endif %}</td>
   {{ acoes('garantias', x) }}</tr>
- {% else %}<tr><td colspan="9" class="text-muted text-center py-3">Nenhuma garantia cadastrada.</td></tr>{% endfor %}
+ {% else %}{{ vazio('Nenhuma garantia cadastrada.', 8) }}{% endfor %}
  </tbody></table></div></div>
 
-<div class="card mb-4" id="ativos">{{ cabecalho('ativos', 'Ativos alocados neste contrato', '', 'Alocar ativo', url_for('alocacao_nova', edital_id=e.id, voltar=request.path ~ '#ativos')) }}
-<div class="table-responsive"><table class="table table-sm table-hover mb-0">
- <thead class="table-light"><tr><th>Ativo</th><th class="text-num">Quantidade</th><th>Local</th><th>Saída</th><th>Retorno previsto</th><th>Devolvido em</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+<div class="card" id="ativos">{{ cabecalho('Ativos alocados neste contrato', 'bi-boxes', alocacoes|selectattr('data_retorno','none')|list|length, '', 'Alocar ativo', url_for('alocacao_nova', edital_id=e.id, voltar=request.path ~ '#ativos')) }}
+<div class="tbl-wrap"><table class="tbl compacta">
+ <thead><tr><th>Ativo</th><th class="num">Quantidade</th><th>Local</th><th>Saída</th><th>Retorno previsto</th><th>Devolvido em</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
  <tbody>
  {% for x in alocacoes %}
- <tr class="{{ 'text-muted' if x.data_retorno }}"><td><a href="{{ url_for('ativo_ver', ativo_id=x.ativo_id) }}">{{ x.ativo_nome }}</a>{% if x.codigo %} <small class="text-muted">{{ x.codigo }}</small>{% endif %}{% if x.observacoes %}<br><small class="text-muted">{{ x.observacoes }}</small>{% endif %}</td>
-  <td class="text-num">{{ x.quantidade|num }} {{ x.unidade or '' }}</td><td><small>{{ x.local or '' }}</small></td><td>{{ x.data_saida|data }}</td><td>{{ x.data_prevista_retorno|data }}</td><td>{{ x.data_retorno|data }}</td>
-  <td>{% if x.data_retorno %}<span class="badge text-bg-secondary">Devolvido</span>{% elif x.data_prevista_retorno and x.data_prevista_retorno < hoje %}<span class="badge text-bg-danger">Retorno atrasado</span>{% else %}<span class="badge text-bg-primary">No contrato</span>{% endif %}</td>
-  {% if pode_editar() %}<td class="text-end no-print" style="white-space:nowrap">{% include "_alocacao_acoes.html" %}</td>{% endif %}</tr>
- {% else %}<tr><td colspan="8" class="text-muted text-center py-3">Nenhum ativo alocado.</td></tr>{% endfor %}
+ <tr class="{{ 'apagado' if x.data_retorno }}"><td><a href="{{ url_for('ativo_ver', ativo_id=x.ativo_id) }}">{{ x.ativo_nome }}</a>{% if x.codigo %} <small class="muted mono">{{ x.codigo }}</small>{% endif %}{% if x.observacoes %}<span class="sub">{{ x.observacoes }}</span>{% endif %}</td>
+  <td class="num">{{ x.quantidade|num }} {{ x.unidade or '' }}</td><td><small>{{ x.local or '' }}</small></td><td>{{ x.data_saida|data }}</td><td>{{ x.data_prevista_retorno|data }}</td><td>{{ x.data_retorno|data }}</td>
+  <td>{% if x.data_retorno %}<span class="badge">Devolvido</span>{% elif x.data_prevista_retorno and x.data_prevista_retorno < hoje %}<span class="badge b-danger">Retorno atrasado</span>{% else %}<span class="badge b-brand">No contrato</span>{% endif %}</td>
+  {% if pode_editar() %}<td class="acao no-print">{% include "_alocacao_acoes.html" %}</td>{% endif %}</tr>
+ {% else %}{{ vazio('Nenhum ativo alocado.', 8) }}{% endfor %}
  </tbody></table></div></div>
 
-<div class="card mb-4" id="anexos"><div class="card-header bg-white fw-semibold">Anexos</div>
+<div class="card" id="anexos"><div class="card-head"><h2><i class="bi bi-paperclip"></i> Anexos <span class="cnt">{{ anexos|length }}</span></h2></div>
  {% if pode_editar() %}
- <div class="card-body border-bottom no-print">
-  <form method="post" action="{{ url_for('anexo_enviar', eid=e.id) }}" enctype="multipart/form-data" class="row g-2 align-items-end">
+ <div class="card-body no-print" style="border-bottom:1px solid var(--line-2)">
+  <form method="post" action="{{ url_for('anexo_enviar', eid=e.id) }}" enctype="multipart/form-data" class="form-grid" style="align-items:end">
    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-   <div class="col-md-4"><label class="form-label small mb-1">Arquivos (até 25 MB por envio)</label><input type="file" name="arquivos" multiple class="form-control form-control-sm" required></div>
-   <div class="col-md-3"><label class="form-label small mb-1">Categoria</label><select name="categoria" class="form-select form-select-sm">{% for c in CATEGORIAS_ANEXO %}<option>{{ c }}</option>{% endfor %}</select></div>
-   <div class="col-md-3"><label class="form-label small mb-1">Descrição</label><input name="descricao" class="form-control form-control-sm"></div>
-   <div class="col-md-2"><button class="btn btn-sm btn-primary w-100"><i class="bi bi-paperclip"></i> Anexar</button></div>
+   <div class="field c-4"><label>Arquivos (até 25 MB por envio)</label><input type="file" name="arquivos" multiple required></div>
+   <div class="field c-3"><label>Categoria</label><select name="categoria">{% for c in CATEGORIAS_ANEXO %}<option>{{ c }}</option>{% endfor %}</select></div>
+   <div class="field c-3"><label>Descrição</label><input type="text" name="descricao"></div>
+   <div class="c-2"><button class="btn btn-primary btn-block"><i class="bi bi-upload"></i> Anexar</button></div>
   </form>
  </div>{% endif %}
- <div class="table-responsive"><table class="table table-sm table-hover mb-0">
-  <thead class="table-light"><tr><th>Arquivo</th><th>Categoria</th><th>Descrição</th><th class="text-num">Tamanho</th><th>Enviado por</th><th>Em</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+ <div class="tbl-wrap"><table class="tbl compacta">
+  <thead><tr><th>Arquivo</th><th>Categoria</th><th>Descrição</th><th class="num">Tamanho</th><th>Enviado</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
   <tbody>
   {% for a in anexos %}
   <tr><td><a href="{{ url_for('anexo_baixar', eid=e.id, aid=a.id) }}"><i class="bi bi-file-earmark-arrow-down"></i> {{ a.nome_original }}</a></td><td><small>{{ a.categoria or '' }}</small></td><td><small>{{ a.descricao or '' }}</small></td>
-   <td class="text-num"><small>{{ a.tamanho|tamanho }}</small></td><td><small>{{ a.enviado_por or '' }}</small></td><td><small>{{ a.enviado_em|data }}</small></td>
-   {% if pode_editar() %}<td class="text-end no-print">{{ excluir(url_for('anexo_excluir', eid=e.id, aid=a.id), 'Excluir este anexo?') }}</td>{% endif %}</tr>
-  {% else %}<tr><td colspan="7" class="text-muted text-center py-3">Nenhum documento anexado.</td></tr>{% endfor %}
+   <td class="num"><small>{{ a.tamanho|tamanho }}</small></td><td><small>{{ a.enviado_por or '' }} · {{ a.enviado_em|data }}</small></td>
+   {% if pode_editar() %}<td class="acao no-print">{{ excluir(url_for('anexo_excluir', eid=e.id, aid=a.id), 'Excluir este anexo?') }}</td>{% endif %}</tr>
+  {% else %}{{ vazio('Nenhum documento anexado.', 6) }}{% endfor %}
   </tbody></table></div>
 </div>
 {% endblock %}

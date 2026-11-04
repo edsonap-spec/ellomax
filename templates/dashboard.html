@@ -1,53 +1,60 @@
 {% extends "base.html" %}
-{% macro lista(titulo, icone, cor, linhas, vazio) %}
- <div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-header bg-white fw-semibold {{ cor }}"><i class="bi {{ icone }}"></i> {{ titulo }} <span class="badge text-bg-light border">{{ linhas|length }}</span></div>
-  <ul class="list-group list-group-flush" style="max-height:260px;overflow:auto">{{ caller() }}
-  {% if not linhas %}<li class="list-group-item text-muted small">{{ vazio }}</li>{% endif %}</ul></div></div>
+{% block title %}Painel{% endblock %}
+{% macro pend(titulo, icone, linhas, vazio, nivel='morno') %}
+ <section class="pend {{ nivel if linhas else 'zero' }}">
+  <div class="pend-head"><span class="ic"><i class="bi {{ icone }}"></i></span>{{ titulo }}<span class="cnt">{{ linhas|length }}</span></div>
+  {% if linhas %}<ul>{{ caller() }}</ul>{% else %}<div class="vazio">{{ vazio }}</div>{% endif %}
+ </section>
 {% endmacro %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
- <h4 class="mb-0">Painel</h4>
- {% if pode_editar() %}<a href="{{ url_for('edital_novo') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Novo edital</a>{% endif %}
+<div class="page-head">
+ <div><div class="eyebrow">{{ hoje|data }}</div><h1>Painel</h1><div class="sub">Totais dos contratos ativos (não encerrados nem cancelados).</div></div>
+ <div class="acoes">
+  {% if pode_editar() %}<a href="{{ url_for('os_nova') }}" class="btn btn-signal"><i class="bi bi-clipboard2-plus"></i> Nova OS</a>
+  <a href="{{ url_for('edital_novo') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Novo edital</a>{% endif %}
+ </div>
 </div>
-<p class="text-muted small">Totais dos editais ativos (não encerrados nem cancelados).</p>
-<div class="row g-3 mb-4">
- {% for rot, val, cor in [('Valor contratado', tot.contratado, 'primary'), ('Empenhado', tot.empenhado, 'secondary'), ('Recebido', tot.liquidado, 'success'), ('A receber', tot.a_receber, 'info'), ('Em atraso', tot.atrasado, 'danger'), ('Gastos lançados', tot.gastos, 'warning'), ('Lucro projetado', tot.lucro_projetado, 'dark')] %}
- <div class="col-6 col-md-3 col-xxl"><div class="card kpi p-3 border-start border-4 border-{{ cor }}">
-  <div class="rotulo">{{ rot }}</div><div class="valor">{{ val|brl }}</div></div></div>
+
+<div class="kpis">
+ {% for rot, val, tom in [('Valor contratado', tot.contratado, 'tone-brand'), ('Empenhado', tot.empenhado, 'tone-mute'), ('Recebido', tot.liquidado, 'tone-ok'), ('A receber', tot.a_receber, 'tone-info'), ('Em atraso', tot.atrasado, 'tone-danger'), ('Gastos lançados', tot.gastos, 'tone-warn'), ('Lucro projetado', tot.lucro_projetado, 'tone-ink')] %}
+ <div class="kpi {{ tom }} {{ 'neg' if val < -0.004 or (rot == 'Em atraso' and val > 0.004) }}"><div class="rot">{{ rot }}</div><div class="val">{{ val|brl }}</div></div>
  {% endfor %}
 </div>
 
-<div class="row g-3 mb-4">
- {% call lista('Recebimentos atrasados', 'bi-exclamation-triangle', 'text-danger', al.atrasados, 'Nenhum recebimento atrasado.') %}
-  {% for r in al.atrasados %}<li class="list-group-item"><a href="{{ url_for('edital_ver', eid=r.edital_id) }}#recebimentos">{{ r.numero }} — {{ r.orgao }}</a><br><small>{{ r.descricao }} · previsto {{ r.data_prevista|data }} · falta <b>{{ (r.valor_previsto - r.valor_recebido - r.retencoes)|brl }}</b></small></li>{% endfor %}
+<div class="pendencias">
+ {% call pend('Ordens de serviço atrasadas ou nos próximos 2 dias', 'bi-clipboard2-check', al.ordens, 'Nenhuma OS pendente para os próximos dias.', 'quente' if al.ordens|selectattr('data_programada', 'lt', hoje)|list else 'morno') %}
+  {% for o in al.ordens %}<li><a href="{{ url_for('os_ver', os_id=o.id) }}">OS {{ o.numero }} · {{ o.tipo }}</a><div class="det">{{ o.edital_numero }} — {{ o.orgao }}{% if o.local %} · {{ o.local }}{% endif %} · <b class="{{ 't-danger' if o.data_programada < hoje }}">{{ o.data_programada|data }}{% if o.hora_programada %} {{ o.hora_programada }}{% endif %}</b></div></li>{% endfor %}
  {% endcall %}
- {% call lista('Entregas de empenhos/OF (vencidas ou em 7 dias)', 'bi-truck', 'text-danger', al.entregas, 'Nenhuma entrega pendente próxima.') %}
-  {% for m in al.entregas %}<li class="list-group-item"><a href="{{ url_for('edital_ver', eid=m.edital_id) }}#empenhos">{{ m.edital_numero }} — {{ m.orgao }}</a><br><small>{{ m.tipo or 'Empenho' }} {{ m.numero }} · prazo <b class="{{ 'text-danger' if m.prazo_entrega < hoje }}">{{ m.prazo_entrega|data }}</b></small></li>{% endfor %}
+ {% call pend('Recebimentos atrasados', 'bi-exclamation-triangle', al.atrasados, 'Nenhum recebimento atrasado.', 'quente') %}
+  {% for r in al.atrasados %}<li><a href="{{ url_for('edital_ver', eid=r.edital_id) }}#recebimentos">{{ r.numero }} — {{ r.orgao }}</a><div class="det">{{ r.descricao }} · previsto {{ r.data_prevista|data }} · falta <b class="mono">{{ (r.valor_previsto - r.valor_recebido - r.retencoes)|brl }}</b></div></li>{% endfor %}
  {% endcall %}
- {% call lista('A receber nos próximos 30 dias', 'bi-calendar-check', '', al.proximos, 'Nada previsto.') %}
-  {% for r in al.proximos %}<li class="list-group-item"><a href="{{ url_for('edital_ver', eid=r.edital_id) }}#recebimentos">{{ r.numero }} — {{ r.orgao }}</a><br><small>{{ r.descricao }} · {{ r.data_prevista|data }} · <b>{{ (r.valor_previsto - r.valor_recebido - r.retencoes)|brl }}</b></small></li>{% endfor %}
+ {% call pend('Entregas de empenhos/OF (vencidas ou em 7 dias)', 'bi-truck', al.entregas, 'Nenhuma entrega pendente próxima.', 'quente') %}
+  {% for m in al.entregas %}<li><a href="{{ url_for('edital_ver', eid=m.edital_id) }}#empenhos">{{ m.edital_numero }} — {{ m.orgao }}</a><div class="det">{{ m.tipo or 'Empenho' }} {{ m.numero }} · prazo <b class="{{ 't-danger' if m.prazo_entrega < hoje }}">{{ m.prazo_entrega|data }}</b></div></li>{% endfor %}
  {% endcall %}
- {% call lista('Vigências terminando em 60 dias', 'bi-hourglass-split', 'text-warning-emphasis', al.vencendo, 'Nenhuma vigência próxima do fim.') %}
-  {% for e in al.vencendo %}<li class="list-group-item"><a href="{{ url_for('edital_ver', eid=e.id) }}">{{ e.numero }} — {{ e.orgao }}</a><br><small>Vigência até <b>{{ e.vigencia_fim|data }}</b></small></li>{% endfor %}
+ {% call pend('A receber nos próximos 30 dias', 'bi-calendar-check', al.proximos, 'Nada previsto.', 'morno') %}
+  {% for r in al.proximos %}<li><a href="{{ url_for('edital_ver', eid=r.edital_id) }}#recebimentos">{{ r.numero }} — {{ r.orgao }}</a><div class="det">{{ r.descricao }} · {{ r.data_prevista|data }} · <b class="mono">{{ (r.valor_previsto - r.valor_recebido - r.retencoes)|brl }}</b></div></li>{% endfor %}
  {% endcall %}
- {% call lista('Garantias vencidas ou vencendo em 30 dias', 'bi-shield-exclamation', 'text-warning-emphasis', al.garantias, 'Nenhuma garantia para renovar ou liberar.') %}
-  {% for ga in al.garantias %}<li class="list-group-item"><a href="{{ url_for('edital_ver', eid=ga.edital_id) }}#garantias">{{ ga.numero }} — {{ ga.orgao }}</a><br><small>{{ ga.tipo }} · {{ ga.valor|brl }} · fim <b class="{{ 'text-danger' if ga.data_fim < hoje }}">{{ ga.data_fim|data }}</b></small></li>{% endfor %}
+ {% call pend('Ativos com retorno previsto (vencido ou em 7 dias)', 'bi-box-seam', al.devolucoes, 'Nenhum ativo para recolher.', 'morno') %}
+  {% for x in al.devolucoes %}<li><a href="{{ url_for('edital_ver', eid=x.edital_id) }}#ativos">{{ x.numero }} — {{ x.orgao }}</a><div class="det">{{ x.ativo_nome }} · {{ x.quantidade|num }} {{ x.unidade or '' }} · retorno <b class="{{ 't-danger' if x.data_prevista_retorno < hoje }}">{{ x.data_prevista_retorno|data }}</b></div></li>{% endfor %}
  {% endcall %}
- {% call lista('Ativos com retorno previsto (vencido ou em 7 dias)', 'bi-box-seam', 'text-warning-emphasis', al.devolucoes, 'Nenhum ativo para recolher.') %}
-  {% for x in al.devolucoes %}<li class="list-group-item"><a href="{{ url_for('edital_ver', eid=x.edital_id) }}#ativos">{{ x.numero }} — {{ x.orgao }}</a><br><small>{{ x.ativo_nome }} · {{ x.quantidade|num }} {{ x.unidade or '' }} · retorno <b class="{{ 'text-danger' if x.data_prevista_retorno < hoje }}">{{ x.data_prevista_retorno|data }}</b></small></li>{% endfor %}
+ {% call pend('Vigências terminando em 60 dias', 'bi-hourglass-split', al.vencendo, 'Nenhuma vigência próxima do fim.', 'morno') %}
+  {% for e in al.vencendo %}<li><a href="{{ url_for('edital_ver', eid=e.id) }}">{{ e.numero }} — {{ e.orgao }}</a><div class="det">Vigência até <b>{{ e.vigencia_fim|data }}</b></div></li>{% endfor %}
+ {% endcall %}
+ {% call pend('Garantias vencidas ou vencendo em 30 dias', 'bi-shield-exclamation', al.garantias, 'Nenhuma garantia para renovar ou liberar.', 'morno') %}
+  {% for ga in al.garantias %}<li><a href="{{ url_for('edital_ver', eid=ga.edital_id) }}#garantias">{{ ga.numero }} — {{ ga.orgao }}</a><div class="det">{{ ga.tipo }} · <span class="mono">{{ ga.valor|brl }}</span> · fim <b class="{{ 't-danger' if ga.data_fim < hoje }}">{{ ga.data_fim|data }}</b></div></li>{% endfor %}
  {% endcall %}
 </div>
 
-<div class="card"><div class="card-header bg-white d-flex justify-content-between align-items-center"><span class="fw-semibold">Editais</span>
- <a href="{{ url_for('editais_xlsx') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Excel</a></div>
-<div class="table-responsive"><table class="table table-hover mb-0">
- <thead class="table-light"><tr><th>Edital</th><th>Órgão</th><th>Situação</th><th class="text-num">Contratado</th><th class="text-num">Recebido</th><th class="text-num">Gastos</th><th class="text-num">Margem proj.</th><th style="width:140px">Recebido %</th></tr></thead>
+<div class="card"><div class="card-head"><h2>Contratos <span class="cnt">{{ linhas|length }}</span></h2>
+ <a href="{{ url_for('editais_xlsx') }}" class="btn btn-sm"><i class="bi bi-file-earmark-spreadsheet"></i> Excel</a></div>
+<div class="tbl-wrap"><table class="tbl">
+ <thead><tr><th>Edital</th><th>Órgão</th><th>Situação</th><th class="num">Contratado</th><th class="num">Recebido</th><th class="num">Gastos</th><th class="num">Margem proj.</th><th style="width:150px">Recebido</th></tr></thead>
  <tbody>
  {% for e, r in linhas %}
- <tr><td><a href="{{ url_for('edital_ver', eid=e.id) }}">{{ e.numero }}</a></td><td>{{ e.orgao }}</td><td><span class="badge text-bg-secondary">{{ e.status }}</span></td>
-  <td class="text-num">{{ r.contratado|brl }}</td><td class="text-num">{{ r.liquidado|brl }}</td><td class="text-num">{{ r.gastos|brl }}</td>
-  <td class="text-num {{ 'text-danger' if r.margem_projetada < 0 }}">{{ r.margem_projetada|pct }}</td>
-  <td><div class="progress" style="height:8px"><div class="progress-bar bg-success" style="width:{{ [r.pct_recebido,100]|min }}%"></div></div><small class="text-muted">{{ r.pct_recebido|pct }}</small></td></tr>
- {% else %}<tr><td colspan="8" class="text-muted text-center py-4">Nenhum edital cadastrado ainda.</td></tr>{% endfor %}
+ <tr><td><a class="forte" href="{{ url_for('edital_ver', eid=e.id) }}">{{ e.numero }}</a></td><td>{{ e.orgao }}</td><td><span class="badge {{ badge_status(e.status) }}">{{ e.status }}</span></td>
+  <td class="num">{{ r.contratado|brl }}</td><td class="num">{{ r.liquidado|brl }}</td><td class="num">{{ r.gastos|brl }}</td>
+  <td class="num {{ 't-danger' if r.margem_projetada < 0 }}">{{ r.margem_projetada|pct }}</td>
+  <td><div class="bar"><span style="width:{{ [r.pct_recebido,100]|min }}%"></span></div><div class="bar-lbl">{{ r.pct_recebido|pct }}</div></td></tr>
+ {% else %}<tr><td colspan="8"><div class="empty"><i class="bi bi-inbox"></i>Nenhum edital cadastrado ainda.</div></td></tr>{% endfor %}
  </tbody></table></div></div>
 {% endblock %}

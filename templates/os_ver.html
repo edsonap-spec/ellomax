@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}OS {{ o.numero }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('os_lista') }}">Ordens de serviço</a> / {{ o.numero }}{% endblock %}
+{% set editavel = pode_editar() and not o.assinado_em %}
+{% set pendentes = o.ck_total - o.ck_ok - o.ck_nc - o.ck_na %}
+{% block content %}
+<div class="page-head">
+ <div>
+  <div class="eyebrow"><span>{{ o.tipo }}</span><span class="badge {{ badge_status(o.status) }}">{{ o.status }}</span></div>
+  <h1>OS <span class="mono" style="font-weight:600">{{ o.numero }}</span></h1>
+  <div class="sub"><a href="{{ url_for('edital_ver', eid=o.edital_id) }}#ordens">Edital {{ o.edital_numero }}</a> · {{ o.orgao }}</div>
+ </div>
+ <div class="acoes no-print">
+  <a href="{{ url_for('os_pdf', os_id=o.id) }}" target="_blank" class="btn btn-primary"><i class="bi bi-printer"></i> Imprimir / PDF</a>
+  <a href="{{ url_for('os_pdf', os_id=o.id, baixar=1) }}" class="btn btn-icon" title="Baixar PDF" aria-label="Baixar PDF"><i class="bi bi-download"></i></a>
+  {% if editavel %}
+   {% if o.status in ('Aberta', 'Agendada') %}
+   <form method="post" action="{{ url_for('os_status', os_id=o.id) }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-signal" name="status" value="Em execução"><i class="bi bi-play-fill"></i> Iniciar execução</button></form>
+   {% endif %}
+   <a href="{{ url_for('os_editar', os_id=o.id) }}" class="btn"><i class="bi bi-pencil"></i> Editar</a>
+   <details class="menu"><summary class="btn btn-icon" aria-label="Mais ações"><i class="bi bi-three-dots"></i></summary>
+    <div class="pop">
+     {% if o.status != 'Cancelada' %}<form method="post" action="{{ url_for('os_status', os_id=o.id) }}" data-confirm="Cancelar esta OS?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="status" value="Cancelada"><button class="btn btn-ghost btn-block" style="justify-content:flex-start"><i class="bi bi-x-circle"></i> Cancelar OS</button></form>{% else %}
+     <form method="post" action="{{ url_for('os_status', os_id=o.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="status" value="Aberta"><button class="btn btn-ghost btn-block" style="justify-content:flex-start"><i class="bi bi-arrow-counterclockwise"></i> Reativar OS</button></form>{% endif %}
+     <form method="post" action="{{ url_for('os_excluir', os_id=o.id) }}" data-confirm="Excluir a OS {{ o.numero }} com checklist e fotos?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-ghost btn-block t-danger" style="justify-content:flex-start"><i class="bi bi-trash3"></i> Excluir OS</button></form>
+    </div></details>
+  {% endif %}
+ </div>
+</div>
+
+{% if o.status != 'Cancelada' %}
+{% set ordem = ['Aberta', 'Agendada', 'Em execução', 'Concluída'] %}
+{% set idx = ordem.index(o.status) if o.status in ordem else 0 %}
+<ol class="etapas" aria-label="Andamento">
+ {% for st in ordem %}<li class="{{ 'feito' if loop.index0 < idx or (loop.index0 == idx and st == 'Concluída') else ('atual' if loop.index0 == idx else '') }}"><span class="dot">{% if loop.index0 < idx or (loop.index0 == idx and st == 'Concluída') %}<i class="bi bi-check-lg"></i>{% else %}{{ loop.index }}{% endif %}</span><span class="t">{{ st }}</span></li>{% endfor %}
+</ol>
+{% endif %}
+
+{% if o.assinado_em %}
+<div class="selo-assinado"><i class="bi bi-patch-check-fill"></i><div><b>Assinada por {{ o.recebedor_nome }}</b> em {{ o.assinado_em|data }} às {{ o.assinado_em[11:16] }}.
+ <div class="small">Código de verificação <code>{{ codigo }}</code> (impresso no rodapé do PDF). A OS está travada para edição.</div></div></div>
+{% endif %}
+
+<nav class="subnav no-print" aria-label="Seções da OS">
+ <a href="#dados">Dados</a><a href="#equipamentos">Equipamentos <span class="cnt">{{ itens|length }}</span></a>
+ <a href="#checklist">Checklist <span class="cnt">{{ o.ck_total - pendentes }}/{{ o.ck_total }}</span></a>
+ <a href="#fotos">Fotos <span class="cnt">{{ fotos|length }}</span></a><a href="#assinatura" class="dest">Assinatura</a>
+</nav>
+
+<div class="card" id="dados"><div class="card-head"><h2><i class="bi bi-info-square"></i> Dados da ordem de serviço</h2></div>
+ <dl class="dados">
+  {% for rot, val in [('Contratante', o.orgao), ('Contrato / ata', o.numero_contrato), ('Empenho / OF', ((o.empenho_tipo or '') ~ ' ' ~ o.empenho_numero) if o.empenho_numero else ''),
+     ('Solicitante', o.solicitante), ('Programada para', (o.data_programada|data) ~ (' ' ~ o.hora_programada if o.hora_programada else '')),
+     ('Executada em', (o.data_execucao|data) ~ ((' · ' ~ (o.hora_inicio or '--:--') ~ ' às ' ~ (o.hora_fim or '--:--')) if o.hora_inicio or o.hora_fim else '')),
+     ('Equipe / técnico', o.equipe), ('Veículo / placa', o.veiculo), ('Empresa', o.empresa)] %}
+  <div><dt>{{ rot }}</dt><dd>{{ (val or '')|trim or '—' }}</dd></div>
+  {% endfor %}
+  <div class="largo"><dt>Local do serviço</dt><dd>{{ o.local or '—' }}</dd></div>
+  {% if o.descricao %}<div class="largo"><dt>Serviço solicitado</dt><dd class="pre">{{ o.descricao }}</dd></div>{% endif %}
+ </dl>
+</div>
+
+<div class="card" id="equipamentos"><div class="card-head"><h2><i class="bi bi-boxes"></i> Equipamentos e serviços <span class="cnt">{{ itens|sum(attribute='quantidade')|num }} un.</span></h2>
+ {% if editavel %}<form method="post" action="{{ url_for('os_item_add', os_id=o.id) }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm" name="acao" value="importar" title="Inclui os ativos que estão alocados neste contrato"><i class="bi bi-download"></i> Trazer ativos do contrato</button></form>{% endif %}</div>
+ <div class="tbl-wrap"><table class="tbl compacta">
+  <thead><tr><th>Descrição</th><th>Identificação / patrimônio</th><th class="num" style="width:110px">Qtd.</th>{% if editavel %}<th></th>{% endif %}</tr></thead>
+  <tbody>
+  {% for it in itens %}
+  {% if editavel %}
+  <tr><td><b>{{ it.descricao }}</b>{% if it.codigo %}<span class="sub mono">{{ it.codigo }}</span>{% endif %}</td>
+   <td colspan="3"><form method="post" action="{{ url_for('os_item_salvar', os_id=o.id, item_id=it.id) }}" style="display:flex;gap:6px;align-items:center">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="text" name="identificacao" class="sm" value="{{ it.identificacao or '' }}" placeholder="Nºs de patrimônio, série, lacres…">
+    <input type="text" name="quantidade" class="sm num-in" style="width:80px" value="{{ it.quantidade|num }}" inputmode="decimal" aria-label="Quantidade">
+    <span class="muted small" style="width:28px">{{ it.unidade or '' }}</span>
+    <button class="btn btn-sm btn-icon btn-ghost" title="Salvar linha" aria-label="Salvar linha"><i class="bi bi-check2"></i></button>
+    <button class="btn btn-sm btn-icon btn-ghost t-danger" name="acao" value="excluir" title="Remover" aria-label="Remover" data-confirm="Remover este item da OS?"><i class="bi bi-x-lg"></i></button>
+   </form></td></tr>
+  {% else %}
+  <tr><td><b>{{ it.descricao }}</b>{% if it.codigo %}<span class="sub mono">{{ it.codigo }}</span>{% endif %}</td><td><small>{{ it.identificacao or '—' }}</small></td><td class="num">{{ it.quantidade|num }} {{ it.unidade or '' }}</td></tr>
+  {% endif %}
+  {% else %}<tr><td colspan="4"><div class="empty">Nenhum equipamento listado nesta OS.</div></td></tr>{% endfor %}
+  </tbody>
+ </table></div>
+ {% if editavel %}
+ <div class="card-foot" style="background:var(--surface)">
+  <form method="post" action="{{ url_for('os_item_add', os_id=o.id) }}" class="form-grid" style="align-items:end;gap:10px">
+   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+   <div class="field c-4"><label>Ativo do estoque</label><select name="ativo_id"><option value="">— item avulso —</option>{% for a in ativos %}<option value="{{ a.id }}">{{ a.nome }}{{ (' (' ~ a.codigo ~ ')') if a.codigo }}</option>{% endfor %}</select></div>
+   <div class="field c-3"><label>ou descrição</label><input type="text" name="descricao" placeholder="Ex.: Banheiro químico PNE"></div>
+   <div class="field c-2"><label>Identificação</label><input type="text" name="identificacao" placeholder="Patrimônio"></div>
+   <div class="field c-2"><label>Qtd.</label><input type="text" name="quantidade" class="num-in" value="1" inputmode="decimal"></div>
+   <div class="c-1" style="grid-column:span 1"><button class="btn btn-primary btn-icon" style="width:100%;height:38px" title="Incluir" aria-label="Incluir"><i class="bi bi-plus-lg"></i></button></div>
+  </form>
+ </div>{% endif %}
+</div>
+
+<div class="card" id="checklist"><div class="card-head"><h2><i class="bi bi-list-check"></i> Checklist de entrega <span class="cnt">{{ o.ck_total }}</span></h2>
+ {% if editavel and o.ck_total %}<button type="button" class="btn btn-sm btn-ok" data-ck-todos><i class="bi bi-check2-all"></i> Pendentes = conforme</button>{% endif %}</div>
+ {% if editavel %}
+ <form method="post" action="{{ url_for('os_checklist_salvar', os_id=o.id) }}" data-checklist>
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  {% for grupo, linhas in grupos %}
+   {% if grupo %}<div class="ck-grupo">{{ grupo }}</div>{% endif %}
+   {% for c in linhas %}
+   <div class="ck">
+    <div class="desc">{{ c.descricao }}</div>
+    <div style="display:flex;gap:6px;align-items:center">
+     <div class="seg" role="radiogroup" aria-label="{{ c.descricao }}">
+      <label><input type="radio" name="res_{{ c.id }}" value="ok" {% if c.resultado == 'ok' %}checked{% endif %}><span class="s-ok"><i class="bi bi-check-lg"></i> C</span></label>
+      <label><input type="radio" name="res_{{ c.id }}" value="nc" {% if c.resultado == 'nc' %}checked{% endif %}><span class="s-nc"><i class="bi bi-x-lg"></i> NC</span></label>
+      <label><input type="radio" name="res_{{ c.id }}" value="na" {% if c.resultado == 'na' %}checked{% endif %}><span class="s-na">N/A</span></label>
+     </div>
+     <button class="btn btn-sm btn-icon btn-ghost" name="excluir" value="{{ c.id }}" title="Remover item" aria-label="Remover item" data-confirm="Remover este item do checklist desta OS?"><i class="bi bi-x"></i></button>
+    </div>
+    <div class="obs"><input type="text" name="obs_{{ c.id }}" value="{{ c.observacao or '' }}" placeholder="Observação (opcional)"></div>
+   </div>
+   {% endfor %}
+  {% else %}<div class="empty">Esta OS não tem checklist. Inclua itens abaixo ou crie a OS a partir de um modelo.</div>{% endfor %}
+  <div class="card-body">
+   <div class="field"><label for="ocorrencias">Ocorrências e observações gerais</label><textarea id="ocorrencias" name="ocorrencias" rows="3" placeholder="Avarias, vandalismo, acesso restrito, pendências do cliente…">{{ o.ocorrencias or '' }}</textarea></div>
+   <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:14px">
+    <div class="ck-resumo" data-ck-resumo></div>
+    <div class="acoes"><button class="btn"><i class="bi bi-save"></i> Salvar checklist</button><button class="btn btn-primary" name="seguir" value="1">Salvar e ir para assinatura <i class="bi bi-arrow-down"></i></button></div>
+   </div>
+  </div>
+ </form>
+ <div class="card-foot" style="background:var(--surface)">
+  <form method="post" action="{{ url_for('os_checklist_salvar', os_id=o.id) }}" style="display:flex;gap:8px;flex-wrap:wrap">
+   <input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="acao" value="adicionar">
+   <input type="text" name="novo_grupo" class="sm" style="max-width:180px" placeholder="Grupo (opcional)">
+   <input type="text" name="nova_descricao" class="sm" style="flex:1;min-width:200px" placeholder="Novo item de verificação só para esta OS" required>
+   <button class="btn btn-sm"><i class="bi bi-plus-lg"></i> Incluir item</button>
+  </form>
+ </div>
+ {% else %}
+  {% for grupo, linhas in grupos %}
+   {% if grupo %}<div class="ck-grupo">{{ grupo }}</div>{% endif %}
+   {% for c in linhas %}
+   <div class="ck {{ 'nc' if c.resultado == 'nc' }}"><div class="desc">{{ c.descricao }}{% if c.observacao %}<div class="muted small">{{ c.observacao }}</div>{% endif %}</div>
+    <div>{% if c.resultado == 'ok' %}<span class="res ok"><i class="bi bi-check-circle-fill"></i> Conforme</span>{% elif c.resultado == 'nc' %}<span class="res nc"><i class="bi bi-x-circle-fill"></i> Não conforme</span>{% elif c.resultado == 'na' %}<span class="res na">N/A</span>{% else %}<span class="muted small">sem resposta</span>{% endif %}</div></div>
+   {% endfor %}
+  {% else %}<div class="empty">Esta OS não tem checklist.</div>{% endfor %}
+  {% if o.ocorrencias %}<div class="card-body"><div class="lbl">Ocorrências</div><div class="pre">{{ o.ocorrencias }}</div></div>{% endif %}
+ {% endif %}
+</div>
+
+<div class="card" id="fotos"><div class="card-head"><h2><i class="bi bi-camera"></i> Registro fotográfico <span class="cnt">{{ fotos|length }}</span></h2></div>
+ <div class="card-body">
+  {% if fotos %}<div class="fotos">
+   {% for ft in fotos %}<figure class="foto" style="margin:0"><a href="{{ url_for('os_foto', os_id=o.id, foto_id=ft.id) }}" target="_blank"><img src="{{ url_for('os_foto', os_id=o.id, foto_id=ft.id) }}" alt="{{ ft.legenda or 'Foto ' ~ loop.index }}" loading="lazy"></a>
+    {% if ft.legenda %}<figcaption class="leg">{{ ft.legenda }}</figcaption>{% endif %}
+    {% if editavel %}<form method="post" action="{{ url_for('os_foto_excluir', os_id=o.id, foto_id=ft.id) }}" data-confirm="Excluir esta foto?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-icon" aria-label="Excluir foto"><i class="bi bi-trash3"></i></button></form>{% endif %}
+   </figure>{% endfor %}
+  </div>{% elif not editavel %}<div class="muted">Nenhuma foto.</div>{% endif %}
+  {% if editavel %}
+  <form method="post" action="{{ url_for('os_foto_enviar', os_id=o.id) }}" enctype="multipart/form-data" class="form-grid" style="align-items:end;{{ 'margin-top:16px' if fotos }}">
+   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+   <div class="field c-5"><label>Fotos (JPG ou PNG; no celular abre a câmera)</label><input type="file" name="fotos" accept="image/jpeg,image/png" capture="environment" multiple required></div>
+   <div class="field c-5"><label>Legenda</label><input type="text" name="legenda" placeholder="Ex.: equipamentos instalados no pátio"></div>
+   <div class="c-2"><button class="btn btn-primary btn-block"><i class="bi bi-upload"></i> Enviar</button></div>
+  </form>{% endif %}
+ </div>
+</div>
+
+<div class="card" id="assinatura"><div class="card-head"><h2><i class="bi bi-pen"></i> Termo de recebimento e assinaturas</h2>
+ {% if o.assinado_em and g.user.perfil == 'admin' %}<form method="post" action="{{ url_for('os_reabrir', os_id=o.id) }}" class="inline" data-confirm="Reabrir a OS? As assinaturas serão descartadas e precisarão ser colhidas de novo."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-danger"><i class="bi bi-unlock"></i> Reabrir OS</button></form>{% endif %}</div>
+ <div class="card-body">
+  <p style="margin-top:0">Declaro que os equipamentos e serviços descritos nesta ordem de serviço foram entregues/executados no local indicado e conferidos conforme o checklist acima, ressalvadas as ocorrências registradas.</p>
+  {% if o.assinado_em %}
+   <div class="assin-grid">
+    <div><img class="assinatura-img" src="{{ o.assinatura_cliente }}" alt="Assinatura do cliente"><div style="margin-top:8px"><b>{{ o.recebedor_nome }}</b><div class="muted small">{{ [o.recebedor_documento, o.recebedor_cargo]|select|join(' · ') }}</div><div class="muted small">Recebido pelo contratante</div></div></div>
+    <div>{% if o.assinatura_tecnico %}<img class="assinatura-img" src="{{ o.assinatura_tecnico }}" alt="Assinatura do técnico">{% else %}<div class="assinatura-img" style="display:grid;place-items:center;color:var(--muted)">sem assinatura digital</div>{% endif %}<div style="margin-top:8px"><b>{{ o.tecnico_nome }}</b><div class="muted small">Responsável técnico · {{ o.empresa or '' }}</div></div></div>
+   </div>
+  {% elif editavel and o.status != 'Cancelada' %}
+   {% if pendentes %}<div class="alert alert-warning" style="margin-bottom:16px"><i class="bi bi-exclamation-triangle-fill"></i><span>Ainda há {{ pendentes }} item(ns) do checklist sem resposta. Salve o checklist completo antes de colher a assinatura.</span></div>{% endif %}
+   <form method="post" action="{{ url_for('os_assinar', os_id=o.id) }}" data-form-assinatura data-confirm="Concluir a OS com estas assinaturas? Depois disso ela fica travada para edição.">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="assinatura_cliente" id="assinatura_cliente"><input type="hidden" name="assinatura_tecnico" id="assinatura_tecnico">
+    <div class="assin-grid">
+     <div>
+      <div class="lbl">Assinatura do cliente <span class="t-danger">*</span></div>
+      <div class="pad-wrap" data-pad="assinatura_cliente"><canvas aria-label="Quadro para assinatura do cliente"></canvas><span class="linha"></span><span class="x-mark">✕</span><button type="button" class="btn btn-sm limpar" data-pad-limpar>Limpar</button></div>
+      <div class="form-grid" style="margin-top:12px;gap:10px">
+       <div class="field"><label>Nome de quem recebe <span class="req">*</span></label><input type="text" name="recebedor_nome" required></div>
+       <div class="field c-6"><label>CPF / matrícula</label><input type="text" name="recebedor_documento"></div>
+       <div class="field c-6"><label>Cargo / setor</label><input type="text" name="recebedor_cargo"></div>
+      </div>
+     </div>
+     <div>
+      <div class="lbl">Assinatura do técnico</div>
+      <div class="pad-wrap" data-pad="assinatura_tecnico"><canvas aria-label="Quadro para assinatura do técnico"></canvas><span class="linha"></span><span class="x-mark">✕</span><button type="button" class="btn btn-sm limpar" data-pad-limpar>Limpar</button></div>
+      <div class="form-grid" style="margin-top:12px;gap:10px">
+       <div class="field"><label>Nome do técnico</label><input type="text" name="tecnico_nome" value="{{ o.equipe or g.user.nome }}"></div>
+      </div>
+     </div>
+    </div>
+    <div class="form-acoes"><button class="btn btn-signal btn-lg" {{ 'disabled' if pendentes }}><i class="bi bi-patch-check"></i> Concluir OS com assinatura</button>
+     <span class="hint" style="align-self:center">Prefere assinar no papel? Use <a href="{{ url_for('os_pdf', os_id=o.id) }}" target="_blank">Imprimir / PDF</a>; os campos saem em branco para assinatura manual.</span></div>
+   </form>
+  {% else %}
+   <div class="muted">{{ 'OS cancelada.' if o.status == 'Cancelada' else 'Aguardando assinatura do cliente.' }}</div>
+  {% endif %}
+ </div>
+</div>
+{% endblock %}

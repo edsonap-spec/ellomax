@@ -1,15 +1,13 @@
 {% extends "base.html" %}
+{% block title %}Minha senha{% endblock %}
 {% block content %}
-<div class="row justify-content-center"><div class="col-md-5">
- <div class="card p-4">
-  <h5 class="mb-3">Alterar minha senha</h5>
-  <form method="post">
-   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-   <div class="mb-3"><label class="form-label">Senha atual</label><input type="password" name="atual" class="form-control" required></div>
-   <div class="mb-3"><label class="form-label">Nova senha (mín. 8 caracteres)</label><input type="password" name="nova" class="form-control" required minlength="8"></div>
-   <div class="mb-3"><label class="form-label">Confirmar nova senha</label><input type="password" name="confirma" class="form-control" required></div>
-   <button class="btn btn-primary">Salvar</button>
-  </form>
- </div>
+<div class="card xnarrow"><div class="card-head"><h2><i class="bi bi-key"></i> Alterar minha senha</h2></div><div class="card-body">
+ <form method="post" class="form-grid">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="field"><label for="atual">Senha atual</label><input id="atual" type="password" name="atual" required autocomplete="current-password"></div>
+  <div class="field"><label for="nova">Nova senha</label><input id="nova" type="password" name="nova" required minlength="8" autocomplete="new-password"><div class="hint">Mínimo de 8 caracteres.</div></div>
+  <div class="field"><label for="confirma">Confirmar nova senha</label><input id="confirma" type="password" name="confirma" required autocomplete="new-password"></div>
+  <div><button class="btn btn-primary"><i class="bi bi-check-lg"></i> Salvar</button></div>
+ </form>
 </div></div>
 {% endblock %}

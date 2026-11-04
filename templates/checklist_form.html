@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Novo modelo' if novo else m.nome }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('checklists') }}">Modelos de checklist</a>{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">Modelo de checklist</div><h1>{{ 'Novo modelo' if novo else m.nome }}</h1></div></div>
+<div class="card narrow" style="margin-left:0"><div class="card-body">
+ <form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="form-grid">
+   <div class="field c-7"><label>Nome <span class="req">*</span></label><input type="text" name="nome" value="{{ m.get('nome') or '' }}" required></div>
+   <div class="field c-5"><label>Sugerido para o tipo</label><select name="tipo_os"><option value="">Qualquer tipo</option>{% for t in TIPOS %}<option {% if t == m.get('tipo_os') %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+   <div class="field"><label>Itens de verificação <span class="req">*</span></label>
+    <textarea name="itens" rows="16" style="font-family:var(--mono);font-size:13px" placeholder="# Estrutura&#10;Porta abrindo e fechando corretamente&#10;Trinco funcionando&#10;# Higiene&#10;Tanque abastecido com produto químico">{{ texto }}</textarea>
+    <div class="hint">Um item por linha. Linhas que começam com <code>#</code> criam um grupo (ex.: <code># Estrutura</code>).</div></div>
+   <div class="field"><label class="check"><input type="checkbox" name="ativo" value="1" {% if m.get('ativo') %}checked{% endif %}> Modelo ativo (aparece ao abrir uma OS)</label></div>
+  </div>
+  <div class="form-acoes"><button class="btn btn-primary"><i class="bi bi-check-lg"></i> Salvar</button><a href="{{ url_for('checklists') }}" class="btn btn-ghost">Cancelar</a></div>
+ </form>
+</div></div>
+{% endblock %}
