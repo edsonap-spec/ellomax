@@ -47,6 +47,16 @@
     });
     filtra();
   }
+  // pedido de compra: custo do frete = km × R$/km
+  const kmIn = document.querySelector("[data-frete-km]");
+  const vkIn = document.querySelector("[data-frete-valor]");
+  const frOut = document.querySelector("[data-frete-total]");
+  if (kmIn && vkIn && frOut) {
+    const n = (v) => { v = (v || "").trim().replace(/\s|R\$/g, ""); if (v.includes(",")) v = v.replace(/\./g, "").replace(",", "."); return parseFloat(v) || 0; };
+    const calc = () => { frOut.textContent = (n(kmIn.value) * n(vkIn.value)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); };
+    kmIn.addEventListener("input", calc); vkIn.addEventListener("input", calc); calc();
+  }
+
   // tipo de OS sugere o modelo de checklist
   const selTipo = document.querySelector("[data-tipo-os]");
   const selModelo = document.querySelector("[data-modelo-select]");

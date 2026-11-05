@@ -1,13 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Alertas por e-mail{% endblock %}
+{% block title %}Alertas e frete{% endblock %}
 {% block content %}
-<div class="page-head"><div><div class="eyebrow">Administração</div><h1>Alertas por e-mail</h1>
+<div class="page-head"><div><div class="eyebrow">Administração</div><h1>Alertas e frete</h1>
  <div class="sub">Resumo diário com OS atrasadas ou próximas, recebimentos atrasados, entregas de empenhos, garantias e vigências vencendo.</div></div></div>
 <div class="card narrow" style="margin-left:0"><div class="card-body">
  <form method="post">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <div class="form-grid">
-   <div class="secao-form">Servidor</div>
+   <div class="secao-form">Frete</div>
+   <div class="field c-6"><label>Custo médio do frete por km</label><div class="prefix"><span>R$</span><input type="text" name="frete_valor_km" class="num-in" inputmode="decimal" value="{{ (cfg.frete_valor_km or '3')|replace('.', ',') }}"></div>
+    <div class="hint">Sugerido nos novos pedidos de compra. Pedidos já lançados mantêm o valor deles.</div></div>
+   <div class="secao-form">Servidor de e-mail</div>
    <div class="field c-8"><label>Servidor SMTP</label><input type="text" name="smtp_host" value="{{ cfg.smtp_host or '' }}" placeholder="smtp.gmail.com"></div>
    <div class="field c-4"><label>Porta</label><input type="text" name="smtp_porta" value="{{ cfg.smtp_porta or '587' }}"></div>
    <div class="field c-6"><label>Usuário</label><input type="text" name="smtp_usuario" value="{{ cfg.smtp_usuario or '' }}" autocomplete="off"></div>

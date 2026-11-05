@@ -24,6 +24,7 @@
    <a href="{{ url_for('dashboard') }}" class="{{ 'ativo' if ep == 'dashboard' }}"><i class="bi bi-grid-1x2"></i> Painel</a>
    <div class="nav-label">Contratos</div>
    <a href="{{ url_for('editais') }}" class="{{ 'ativo' if ep.startswith('edital') or ep in ('filho_novo','filho_editar','empenho_novo','empenho_editar') }}"><i class="bi bi-file-earmark-text"></i> Editais e contratos</a>
+   <a href="{{ url_for('pedidos') }}" class="{{ 'ativo' if ep.startswith('pedidos') }}"><i class="bi bi-cart-check"></i> Pedidos de compra</a>
    <div class="nav-label">Operação</div>
    <a href="{{ url_for('os_lista') }}" class="{{ 'ativo' if ep.startswith('os_') and ep != 'os_relatorio' }}"><i class="bi bi-clipboard2-check"></i> Ordens de serviço{% if os_pendentes %}<span class="cont" title="Atrasadas ou para hoje">{{ os_pendentes }}</span>{% endif %}</a>
    <a href="{{ url_for('ativos') }}" class="{{ 'ativo' if ep.startswith('ativo') or ep.startswith('alocacao') }}"><i class="bi bi-boxes"></i> Estoque de ativos</a>
@@ -32,7 +33,7 @@
    <div class="nav-label">Administração</div>
    <a href="{{ url_for('empresas') }}" class="{{ 'ativo' if ep.startswith('empresa') }}"><i class="bi bi-buildings"></i> Empresas</a>
    <a href="{{ url_for('usuarios') }}" class="{{ 'ativo' if ep.startswith('usuario') }}"><i class="bi bi-people"></i> Usuários</a>
-   <a href="{{ url_for('configuracoes') }}" class="{{ 'ativo' if ep == 'configuracoes' }}"><i class="bi bi-envelope-paper"></i> Alertas por e-mail</a>
+   <a href="{{ url_for('configuracoes') }}" class="{{ 'ativo' if ep == 'configuracoes' }}"><i class="bi bi-envelope-paper"></i> Alertas e frete</a>
    <a href="{{ url_for('auditoria') }}" class="{{ 'ativo' if ep == 'auditoria' }}"><i class="bi bi-journal-text"></i> Auditoria</a>
    {% endif %}
   </nav>

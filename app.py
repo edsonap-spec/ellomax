@@ -63,7 +63,7 @@ CATEGORIA_IMPOSTOS = "Impostos"
 CATEGORIAS_GASTO = ["Mercadoria / insumo", "Frete / logística", CATEGORIA_IMPOSTOS, "Taxas e emolumentos",
                     "Garantia contratual", "Mão de obra", "Viagem / deslocamento", "Comissão",
                     "Outros"]
-TIPOS_EMPENHO = ["Nota de empenho", "Ordem de fornecimento", "Autorização de fornecimento",
+TIPOS_EMPENHO = ["Pedido de compra", "Nota de empenho", "Ordem de fornecimento", "Autorização de fornecimento",
                  "Ordem de serviço", "Pedido / requisição"]
 TIPOS_GARANTIA = ["Caução em dinheiro", "Seguro-garantia", "Fiança bancária", "Títulos da dívida pública"]
 TIPOS_ADITIVO = ["Prorrogação de prazo", "Acréscimo de valor", "Supressão de valor", "Reajuste",
@@ -407,6 +407,11 @@ def init_db():
     _add_col(db, "editais", "empresa_id", "INTEGER REFERENCES empresas(id)")
     _add_col(db, "editais", "aliquota_impostos", "REAL")
     _add_col(db, "recebimentos", "retencoes", "REAL NOT NULL DEFAULT 0")
+    # pedidos de compra: local, solicitante, distância e frete
+    _add_col(db, "empenhos", "solicitante", "TEXT")
+    _add_col(db, "empenhos", "local_entrega", "TEXT")
+    _add_col(db, "empenhos", "distancia_km", "REAL")
+    _add_col(db, "empenhos", "valor_km", "REAL")
     if not db.execute("SELECT 1 FROM empresas LIMIT 1").fetchone():
         db.execute("INSERT INTO empresas (razao_social) VALUES ('Minha Empresa')")
     primeira = db.execute("SELECT id FROM empresas ORDER BY id LIMIT 1").fetchone()[0]
@@ -539,7 +544,8 @@ def empresas_permitidas():
 @app.context_processor
 def inject():
     ctx = {"PERFIS": PERFIS, "csrf_token": session.get("csrf", ""), "pode_editar": pode_editar,
-           "hoje": date.today().isoformat(), "badge_status": badge_status}
+           "hoje": date.today().isoformat(), "badge_status": badge_status, "prazo_pedido": prazo_pedido,
+           "frete_pedido": frete_pedido}
     if g.get("user"):
         emp = empresa_atual()
         ctx["empresas_menu"] = empresas_permitidas()
@@ -549,6 +555,41 @@ def inject():
                  WHERE os.status NOT IN ('Concluída','Cancelada') AND os.data_programada <= date('now','localtime')"""
         ctx["os_pendentes"] = get_db().execute(sql + (" AND e.empresa_id=?" if emp else ""), (emp,) if emp else ()).fetchone()[0]
     return ctx
+
+
+FRETE_KM_PADRAO = 3.0
+
+
+def valor_km_padrao(db=None):
+    try:
+        return float((get_config(db).get("frete_valor_km") or "").replace(",", ".") or FRETE_KM_PADRAO)
+    except ValueError:
+        return FRETE_KM_PADRAO
+
+
+def frete_pedido(m):
+    km = m["distancia_km"] if "distancia_km" in m.keys() else None
+    return (km or 0) * (m["valor_km"] if m["valor_km"] is not None else FRETE_KM_PADRAO) if km else 0
+
+
+def prazo_pedido(m):
+    """Situação de prazo do pedido: (rótulo, classe do selo, dias de atraso)."""
+    prazo, entrega = m["prazo_entrega"], m["data_entrega"]
+    hoje_ = date.today().isoformat()
+    def dias(a, b):
+        return (date.fromisoformat(b[:10]) - date.fromisoformat(a[:10])).days
+    if entrega:
+        if prazo and entrega[:10] > prazo[:10]:
+            d = dias(prazo, entrega)
+            return f"Entregue com {d} dia{'s' if d > 1 else ''} de atraso", "b-warn", d
+        return ("Entregue no prazo" if prazo else "Entregue"), "b-ok", 0
+    if prazo and prazo[:10] < hoje_:
+        d = dias(prazo, hoje_)
+        return f"Atrasado há {d} dia{'s' if d > 1 else ''}", "b-danger", d
+    if prazo:
+        d = dias(hoje_, prazo)
+        return ("Vence hoje" if d == 0 else f"A entregar · faltam {d} dia{'s' if d > 1 else ''}"), ("b-signal" if d <= 3 else ""), 0
+    return "A entregar", "", 0
 
 
 TONS_STATUS = {
@@ -1164,6 +1205,16 @@ def empenho_form(eid, fid):
         except ValueError as x:
             erros.append(f"Valor: {x}")
             valor_manual = 0
+        try:
+            km = parse_num(form.get("distancia_km"))
+            valor_km = parse_num(form.get("valor_km"))
+            if valor_km is None:
+                valor_km = valor_km_padrao(db)
+            if (km or 0) < 0 or valor_km < 0:
+                erros.append("Distância e valor por km não podem ser negativos.")
+        except ValueError as x:
+            erros.append(f"Frete: {x}")
+            km, valor_km = None, None
         qtds = {}
         for i in itens:
             try:
@@ -1190,6 +1241,10 @@ def empenho_form(eid, fid):
                 "data_entrega": form.get("data_entrega") or None,
                 "valor": valor_manual,
                 "observacoes": form.get("observacoes", "").strip() or None,
+                "solicitante": form.get("solicitante", "").strip() or None,
+                "local_entrega": form.get("local_entrega", "").strip() or None,
+                "distancia_km": km,
+                "valor_km": valor_km,
             }
             cols = list(dados)
             if fid:
@@ -1207,14 +1262,20 @@ def empenho_form(eid, fid):
             if dados["data_entrega"]:
                 _movimentar_entregue(db, fid, 1)
             db.commit()
-            flash("Empenho / OF salvo." + (" Quantidades entregues atualizadas nos itens." if dados["data_entrega"] else ""), "success")
+            flash("Pedido salvo." + (" Quantidades entregues atualizadas nos itens." if dados["data_entrega"] else ""), "success")
             return redirect(voltar)
-    valores = dict(atual) if atual else {"tipo": TIPOS_EMPENHO[0], "data_emissao": date.today().isoformat()}
+    valores = dict(atual) if atual else {"tipo": TIPOS_EMPENHO[0], "data_emissao": date.today().isoformat(),
+                                         "local_entrega": e["local_entrega"]}
     if atual and atual["valor"]:
         valores["valor"] = f"{atual['valor']:.2f}".replace(".", ",")
+    if atual and atual["distancia_km"] is not None:
+        valores["distancia_km"] = num(atual["distancia_km"])
+    vkm = atual["valor_km"] if atual and atual["valor_km"] is not None else valor_km_padrao(db)
+    valores["valor_km"] = f"{vkm:.2f}".replace(".", ",")
     if form:
         valores = form
     return render_template("empenho_form.html", e=e, itens=itens, valores=valores, qtd_atual=qtd_atual,
+                           valor_km_padrao=valor_km_padrao(db),
                            form=form, voltar=voltar, TIPOS=TIPOS_EMPENHO, novo=not atual)
 
 
@@ -1246,6 +1307,76 @@ def empenho_entregue(eid, fid):
         db.commit()
         flash("Entrega registrada e quantidades atualizadas nos itens.", "success")
     return redirect(url_for("edital_ver", eid=eid) + "#empenhos")
+
+
+SQL_PEDIDOS = """SELECT em.*, e.numero AS edital_numero, e.orgao, e.empresa_id,
+    COALESCE((SELECT SUM(ei.quantidade*i.valor_unitario) FROM empenho_itens ei JOIN itens i ON i.id=ei.item_id
+              WHERE ei.empenho_id=em.id), 0) AS valor_itens,
+    COALESCE((SELECT SUM(ei.quantidade) FROM empenho_itens ei WHERE ei.empenho_id=em.id), 0) AS qtd_total
+    FROM empenhos em JOIN editais e ON e.id=em.edital_id"""
+
+SITUACOES_PEDIDO = ["A entregar", "Atrasados", "Entregues no prazo", "Entregues com atraso"]
+
+
+def consultar_pedidos():
+    f = request.args
+    sql, args = SQL_PEDIDOS + " WHERE 1=1", []
+    q = f.get("q", "").strip()
+    if q:
+        sql += " AND (em.numero LIKE ? OR e.numero LIKE ? OR e.orgao LIKE ? OR em.local_entrega LIKE ? OR em.solicitante LIKE ?)"
+        args += [f"%{q}%"] * 5
+    if (f.get("edital_id") or "").isdigit():
+        sql += " AND em.edital_id=?"
+        args.append(int(f["edital_id"]))
+    if f.get("de"):
+        sql += " AND em.data_emissao >= ?"
+        args.append(f["de"])
+    if f.get("ate"):
+        sql += " AND em.data_emissao <= ?"
+        args.append(f["ate"])
+    emp = empresa_atual()
+    if emp:
+        sql += " AND e.empresa_id=?"
+        args.append(emp)
+    linhas = []
+    for m in get_db().execute(sql + " ORDER BY COALESCE(em.data_emissao, '') DESC, em.id DESC", args).fetchall():
+        d = dict(m)
+        d["valor_total"] = d["valor_itens"] or d["valor"] or 0
+        d["frete"] = frete_pedido(m)
+        d["prazo_rotulo"], d["prazo_tom"], d["dias_atraso"] = prazo_pedido(m)
+        if d["data_entrega"]:
+            d["situacao"] = "Entregues com atraso" if d["dias_atraso"] else "Entregues no prazo"
+        else:
+            d["situacao"] = "Atrasados" if d["dias_atraso"] else "A entregar"
+        linhas.append(d)
+    resumo = {s: 0 for s in SITUACOES_PEDIDO}
+    for d in linhas:
+        resumo[d["situacao"]] += 1
+    st = f.get("situacao", "")
+    if st in SITUACOES_PEDIDO:
+        linhas = [d for d in linhas if d["situacao"] == st]
+    filtros = {k: f.get(k, "") for k in ("q", "edital_id", "de", "ate", "situacao")}
+    return filtros, linhas, resumo
+
+
+@app.route("/pedidos")
+@login_required
+def pedidos():
+    filtros, linhas, resumo = consultar_pedidos()
+    entregues = resumo["Entregues no prazo"] + resumo["Entregues com atraso"]
+    tot = {"qtd": len(linhas), "valor": sum(d["valor_total"] for d in linhas), "frete": sum(d["frete"] for d in linhas),
+           "km": sum(d["distancia_km"] or 0 for d in linhas),
+           "pct_prazo": (resumo["Entregues no prazo"] / entregues * 100) if entregues else None}
+    return render_template("pedidos.html", linhas=linhas, f=filtros, resumo=resumo, tot=tot, SITUACOES=SITUACOES_PEDIDO,
+                           editais=editais_para_os(), valor_km=valor_km_padrao())
+
+
+@app.route("/pedidos/exportar.xlsx")
+@login_required
+def pedidos_xlsx():
+    _, linhas, _ = consultar_pedidos()
+    return send_file(relatorios.xlsx_pedidos(linhas), as_attachment=True,
+                     download_name=f"pedidos_compra_{date.today():%Y%m%d}.xlsx")
 
 
 # ---------------------------------------------------------------- anexos
@@ -2330,6 +2461,11 @@ def configuracoes():
     if request.method == "POST":
         valores = {k: request.form.get(k, "").strip() for k in CHAVES_SMTP}
         valores["alerta_ativo"] = "1" if request.form.get("alerta_ativo") else "0"
+        try:
+            vkm = parse_num(request.form.get("frete_valor_km"))
+            valores["frete_valor_km"] = str(vkm if vkm is not None else FRETE_KM_PADRAO)
+        except ValueError:
+            flash("Valor do frete por km inválido; mantido o anterior.", "warning")
         if request.form.get("smtp_senha"):
             valores["smtp_senha"] = request.form["smtp_senha"]
         set_config(db, **valores)

@@ -235,10 +235,12 @@ def pdf_edital(d):
                            total=["", "", "Total", "", "", "", "", _brl(r["contratado_itens"]), "", "", ""],
                            direita=range(5, 11)))
     if d["empenhos"]:
-        hist.append(Paragraph("Empenhos e ordens de fornecimento", h2))
-        hist.append(tabela(["Tipo", "Número", "Emissão", "Prazo", "Entregue em", "Valor"],
+        hist.append(Paragraph("Pedidos de compra, empenhos e ordens de fornecimento", h2))
+        hist.append(tabela(["Tipo", "Número", "Emissão", "Prazo", "Entregue em", "Valor", "Km", "Frete"],
                            [(m["tipo"], m["numero"], _d(m["data_emissao"]), _d(m["prazo_entrega"]), _d(m["data_entrega"]),
-                             _brl(m["valor_itens"] or m["valor"])) for m in d["empenhos"]], direita=(5,)))
+                             _brl(m["valor_itens"] or m["valor"]), _num(m["distancia_km"]) if m["distancia_km"] else "",
+                             _brl((m["distancia_km"] or 0) * (m["valor_km"] if m["valor_km"] is not None else 3))
+                             if m["distancia_km"] else "") for m in d["empenhos"]], direita=(5, 6, 7)))
     if d["receb"]:
         hist.append(Paragraph("Recebimentos", h2))
         hist.append(tabela(["Descrição", "Empenho/OF", "NF", "Previsto em", "Valor previsto", "Recebido em", "Valor recebido",
@@ -629,6 +631,19 @@ def pdf_relatorio_os(lista, itens, filtros, edital=None):
     doc.build(hist, onFirstPage=desenho, onLaterPages=desenho)
     buf.seek(0)
     return buf
+
+
+def xlsx_pedidos(linhas):
+    wb = Workbook()
+    _aba(wb, "Pedidos de compra", ["Pedido", "Tipo", "Edital", "Órgão", "Solicitante", "Emissão", "Prazo", "Entregue em",
+                                   "Situação", "Dias de atraso", "Quantidade", "Valor", "Local de entrega", "Distância (km)",
+                                   "R$ por km", "Frete"],
+         [(d["numero"], d["tipo"], d["edital_numero"], d["orgao"], d["solicitante"], _dt(d["data_emissao"]),
+           _dt(d["prazo_entrega"]), _dt(d["data_entrega"]), d["prazo_rotulo"], d["dias_atraso"] or None, d["qtd_total"],
+           d["valor_total"], d["local_entrega"], d["distancia_km"], d["valor_km"], d["frete"]) for d in linhas],
+         {"Quantidade": FMT_NUM, "Valor": FMT_BRL, "Distância (km)": FMT_NUM, "R$ por km": FMT_BRL, "Frete": FMT_BRL},
+         primeira=True)
+    return _salvar(wb)
 
 
 def xlsx_os(lista):

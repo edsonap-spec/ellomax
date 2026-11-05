@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Empenho / OF{% endblock %}
-{% block crumbs %}<a href="{{ url_for('edital_ver', eid=e.id) }}">Edital {{ e.numero }}</a> / Empenho{% endblock %}
+{% block title %}Pedido de compra{% endblock %}
+{% block crumbs %}<a href="{{ url_for('edital_ver', eid=e.id) }}">Edital {{ e.numero }}</a> / Pedido{% endblock %}
 {% block content %}
-<div class="page-head"><div><div class="eyebrow">Edital {{ e.numero }} · {{ e.orgao }}</div><h1>{{ 'Novo empenho / ordem de fornecimento' if novo else 'Editar empenho / OF' }}</h1>
- <div class="sub">Informe as quantidades de cada item atendidas por este documento. Ao preencher a data de entrega, as quantidades são somadas ao "entregue" dos itens.</div></div></div>
+<div class="page-head"><div><div class="eyebrow">Edital {{ e.numero }} · {{ e.orgao }}</div><h1>{{ 'Novo pedido de compra' if novo else 'Editar pedido ' ~ valores.get('numero', '') }}</h1>
+ <div class="sub">Pedido de compra, empenho ou ordem de fornecimento enviado pelo órgão. Informe as quantidades de cada item; ao preencher a data de entrega, elas são somadas ao "entregue" dos itens e o sistema indica se a entrega foi no prazo.</div></div></div>
 <form method="post">
  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
  <div class="card"><div class="card-body"><div class="form-grid">
@@ -14,11 +14,19 @@
   <div class="field c-2"><label>Entregue em</label><input type="date" name="data_entrega" value="{{ valores.get('data_entrega') or '' }}"></div>
   <div class="field c-3"><label>Valor (só se não houver itens)</label><div class="prefix"><span>R$</span><input type="text" name="valor" class="num-in" inputmode="decimal" value="{{ valores.get('valor') or '' }}" placeholder="0,00"></div></div>
   <div class="field c-9"><label>Observações</label><input type="text" name="observacoes" value="{{ valores.get('observacoes') or '' }}"></div>
+  <div class="secao-form">Entrega e frete</div>
+  <div class="field c-4"><label>Solicitante no órgão</label><input type="text" name="solicitante" value="{{ valores.get('solicitante') or '' }}" placeholder="Nome / secretaria"></div>
+  <div class="field c-8"><label>Local de entrega</label><input type="text" name="local_entrega" value="{{ valores.get('local_entrega') or '' }}"></div>
+  <div class="field c-3"><label for="distancia_km">Distância (km)</label><input type="text" id="distancia_km" name="distancia_km" class="num-in" inputmode="decimal" value="{{ valores.get('distancia_km') or '' }}" placeholder="0" data-frete-km>
+   <div class="hint">Total percorrido (ida e volta, se for o caso).</div></div>
+  <div class="field c-3"><label for="valor_km">Custo por km</label><div class="prefix"><span>R$</span><input type="text" id="valor_km" name="valor_km" class="num-in" inputmode="decimal" value="{{ valores.get('valor_km') or '' }}" data-frete-valor></div>
+   <div class="hint">Padrão: R$ {{ '%.2f'|format(valor_km_padrao)|replace('.', ',') }} (Administração → Alertas e frete).</div></div>
+  <div class="field c-6"><label>Custo do frete</label><div class="kpi tone-signal" style="padding:9px 14px;box-shadow:none"><div class="val" style="margin:0;font-size:20px" data-frete-total>R$ 0,00</div></div></div>
  </div></div></div>
  {% if itens %}
  <div class="card"><div class="card-head"><h2><i class="bi bi-list-ol"></i> Quantidades por item</h2></div>
  <div class="tbl-wrap"><table class="tbl compacta">
-  <thead><tr><th>Lote</th><th>Item</th><th>Descrição</th><th>Un.</th><th class="num">Contratado</th><th class="num">Em outros</th><th class="num">Saldo</th><th class="num">Vlr. unit.</th><th style="width:130px">Neste empenho</th></tr></thead>
+  <thead><tr><th>Lote</th><th>Item</th><th>Descrição</th><th>Un.</th><th class="num">Contratado</th><th class="num">Em outros pedidos</th><th class="num">Saldo</th><th class="num">Vlr. unit.</th><th style="width:130px">Neste pedido</th></tr></thead>
   <tbody>
   {% for i in itens %}{% set saldo = i.quantidade - i.empenhado_outros %}
   <tr><td>{{ i.lote or '' }}</td><td>{{ i.numero_item or '' }}</td><td><small>{{ i.descricao }}</small></td><td>{{ i.unidade or '' }}</td>

@@ -33,7 +33,7 @@
 </div>
 
 <nav class="subnav no-print" aria-label="Seções do edital">
- {% for ancora, rot, qtd in [('dados','Dados',None), ('itens','Itens',itens|length), ('empenhos','Empenhos/OF',empenhos|length), ('ordens','Ordens de serviço',ordens|length), ('recebimentos','Recebimentos',receb|length), ('gastos','Gastos',gastos|length), ('aditivos','Aditivos',aditivos|length), ('garantias','Garantias',garantias|length), ('ativos','Ativos',alocacoes|selectattr('data_retorno','none')|list|length), ('anexos','Anexos',anexos|length)] %}
+ {% for ancora, rot, qtd in [('dados','Dados',None), ('itens','Itens',itens|length), ('empenhos','Pedidos',empenhos|length), ('ordens','Ordens de serviço',ordens|length), ('recebimentos','Recebimentos',receb|length), ('gastos','Gastos',gastos|length), ('aditivos','Aditivos',aditivos|length), ('garantias','Garantias',garantias|length), ('ativos','Ativos',alocacoes|selectattr('data_retorno','none')|list|length), ('anexos','Anexos',anexos|length)] %}
  <a href="#{{ ancora }}" class="{{ 'dest' if ancora == 'ordens' }}">{{ rot }}{% if qtd is not none %} <span class="cnt">{{ qtd }}</span>{% endif %}</a>
  {% endfor %}
 </nav>
@@ -81,24 +81,26 @@
  {% if itens %}<tfoot><tr><td colspan="6">Total</td><td class="num">{{ r.contratado_itens|brl }}</td><td colspan="6"></td></tr></tfoot>{% endif %}
 </table></div></div>
 
-<div class="card" id="empenhos">{{ cabecalho('Empenhos e ordens de fornecimento', 'bi-receipt', empenhos|length, 'empenhos', 'Empenho / OF', url_for('empenho_novo', eid=e.id)) }}
+<div class="card" id="empenhos">{{ cabecalho('Pedidos de compra, empenhos e OF', 'bi-receipt', empenhos|length, 'empenhos', 'Pedido', url_for('empenho_novo', eid=e.id)) }}
 <div class="tbl-wrap"><table class="tbl compacta">
- <thead><tr><th>Número</th><th>Emissão</th><th>Prazo</th><th>Entregue em</th><th>Itens</th><th class="num">Valor</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+ <thead><tr><th>Número</th><th>Emissão</th><th>Prazo</th><th>Entregue em</th><th>Itens</th><th class="num">Valor</th><th class="num">Frete</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
  <tbody>
  {% for m in empenhos %}
  <tr><td><b>{{ m.numero }}</b><span class="sub">{{ m.tipo or '' }}{% if m.observacoes %} · {{ m.observacoes }}{% endif %}</span></td><td>{{ m.data_emissao|data }}</td><td>{{ m.prazo_entrega|data }}</td><td>{{ m.data_entrega|data }}</td>
   <td><small>{% for li in linhas_emp.get(m.id, []) %}{{ li.numero_item or '-' }}: {{ li.quantidade|num }} {{ li.unidade or '' }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}</small></td>
   <td class="num">{{ (m.valor_itens or m.valor)|brl }}</td>
-  <td>{% if m.data_entrega %}<span class="badge b-ok">Entregue</span>{% elif m.prazo_entrega and m.prazo_entrega < hoje %}<span class="badge b-danger">Entrega atrasada</span>{% else %}<span class="badge">A entregar</span>{% endif %}</td>
+  <td class="num">{% if m.distancia_km %}{{ frete_pedido(m)|brl }}<span class="sub">{{ m.distancia_km|num }} km</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td>{% set pz = prazo_pedido(m) %}<span class="badge {{ pz[1] }}">{{ pz[0] }}</span></td>
   {% if pode_editar() %}<td class="acao no-print"><span class="btns">
-   <a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('os_nova', edital_id=e.id, empenho_id=m.id) }}" title="Abrir OS para este empenho"><i class="bi bi-clipboard2-plus"></i></a>
+   <a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('os_nova', edital_id=e.id, empenho_id=m.id) }}" title="Abrir OS para este pedido"><i class="bi bi-clipboard2-plus"></i></a>
    {% if not m.data_entrega %}<form method="post" action="{{ url_for('empenho_entregue', eid=e.id, fid=m.id) }}" class="inline" data-confirm="Registrar a entrega hoje? As quantidades serão somadas ao entregue dos itens."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-icon btn-ghost t-ok" title="Marcar como entregue hoje"><i class="bi bi-truck"></i></button></form>{% endif %}
    <a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('empenho_editar', eid=e.id, fid=m.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
-   {{ excluir(url_for('empenho_excluir', eid=e.id, fid=m.id), 'Excluir este empenho/OF?' ~ (' As quantidades entregues serão estornadas.' if m.data_entrega else '')) }}
+   {{ excluir(url_for('empenho_excluir', eid=e.id, fid=m.id), 'Excluir este pedido?' ~ (' As quantidades entregues serão estornadas.' if m.data_entrega else '')) }}
   </span></td>{% endif %}</tr>
- {% else %}{{ vazio('Nenhum empenho ou ordem de fornecimento lançado.', 8) }}{% endfor %}
+ {% else %}{{ vazio('Nenhum pedido de compra lançado.', 9) }}{% endfor %}
  </tbody>
- {% if empenhos %}<tfoot><tr><td colspan="5">Total empenhado <span class="muted" style="font-weight:400">· saldo a empenhar {{ (r.contratado - r.empenhado)|brl }}</span></td><td class="num">{{ r.empenhado|brl }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
+ {% if empenhos %}{% set ns = namespace(frete=0) %}{% for m in empenhos %}{% set ns.frete = ns.frete + frete_pedido(m) %}{% endfor %}
+ <tfoot><tr><td colspan="5">Total pedido <span class="muted" style="font-weight:400">· saldo a pedir {{ (r.contratado - r.empenhado)|brl }}</span></td><td class="num">{{ r.empenhado|brl }}</td><td class="num">{{ ns.frete|brl }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
 </table></div></div>
 
 <div class="card" id="ordens"><div class="card-head"><h2><i class="bi bi-clipboard2-check"></i> Ordens de serviço <span class="cnt">{{ ordens|length }}</span></h2>
