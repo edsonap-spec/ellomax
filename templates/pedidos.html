@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Pedidos de compra{% endblock %}
+{% block content %}
+{% set qs = f|dictsort|selectattr(1)|list %}
+<div class="page-head">
+ <div><div class="eyebrow">Contratos</div><h1>Pedidos de compra</h1>
+  <div class="sub">Pedidos, empenhos e ordens de fornecimento recebidos dos órgãos: quantidades, valores, prazo de entrega e frete.</div></div>
+ <div class="acoes">
+  <a href="{{ url_for('pedidos_xlsx', **f) }}" class="btn"><i class="bi bi-file-earmark-spreadsheet"></i> Excel</a>
+  {% if pode_editar() and f.edital_id %}<a href="{{ url_for('empenho_novo', eid=f.edital_id) }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Novo pedido</a>{% endif %}
+ </div>
+</div>
+
+<div class="kpis">
+ <div class="kpi tone-brand"><div class="rot">Pedidos no filtro</div><div class="val">{{ tot.qtd }}</div><div class="sub">{{ tot.valor|brl }} em valor</div></div>
+ <div class="kpi tone-ok"><div class="rot">Entregas no prazo</div><div class="val">{{ tot.pct_prazo|pct if tot.pct_prazo is not none else '—' }}</div><div class="sub">{{ resumo['Entregues no prazo'] }} no prazo · {{ resumo['Entregues com atraso'] }} com atraso</div></div>
+ <div class="kpi tone-danger {{ 'neg' if resumo['Atrasados'] }}"><div class="rot">Atrasados</div><div class="val">{{ resumo['Atrasados'] }}</div><div class="sub">Prazo vencido e não entregue</div></div>
+ <div class="kpi tone-signal"><div class="rot">Frete estimado</div><div class="val">{{ tot.frete|brl }}</div><div class="sub">{{ tot.km|num }} km · padrão R$ {{ '%.2f'|format(valor_km)|replace('.', ',') }}/km</div></div>
+</div>
+
+<form class="filtros no-print">
+ <input class="grow" type="search" name="q" value="{{ f.q }}" placeholder="Nº do pedido, edital, órgão, local ou solicitante">
+ <select name="edital_id" style="width:auto;max-width:260px"><option value="">Todos os contratos</option>{% for e in editais %}<option value="{{ e.id }}" {% if e.id|string == f.edital_id %}selected{% endif %}>{{ e.numero }} — {{ e.orgao }}</option>{% endfor %}</select>
+ <select name="situacao" style="width:auto"><option value="">Todas as situações</option>{% for s in SITUACOES %}<option {% if s == f.situacao %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+ <input type="date" name="de" value="{{ f.de }}" title="Emitidos de" style="width:auto">
+ <input type="date" name="ate" value="{{ f.ate }}" title="Emitidos até" style="width:auto">
+ <button class="btn"><i class="bi bi-funnel"></i> Filtrar</button>
+ {% if qs %}<a href="{{ url_for('pedidos') }}" class="btn btn-ghost">Limpar</a>{% endif %}
+</form>
+
+<div class="card"><div class="tbl-wrap"><table class="tbl">
+ <thead><tr><th>Pedido</th><th>Contrato</th><th>Emissão</th><th>Prazo</th><th>Entregue em</th><th class="num">Qtd.</th><th class="num">Valor</th><th class="num">Frete</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+ <tbody>
+ {% for d in linhas %}
+ <tr><td><b>{{ d.numero }}</b><span class="sub">{{ d.tipo or '' }}{% if d.solicitante %} · {{ d.solicitante }}{% endif %}</span></td>
+  <td><a href="{{ url_for('edital_ver', eid=d.edital_id) }}#empenhos">{{ d.edital_numero }}</a><span class="sub">{{ d.orgao|truncate(40) }}</span></td>
+  <td class="nowrap">{{ d.data_emissao|data }}</td><td class="nowrap">{{ d.prazo_entrega|data }}</td><td class="nowrap">{{ d.data_entrega|data }}</td>
+  <td class="num">{{ d.qtd_total|num if d.qtd_total else '' }}</td><td class="num">{{ d.valor_total|brl }}</td>
+  <td class="num">{% if d.distancia_km %}{{ d.frete|brl }}<span class="sub">{{ d.distancia_km|num }} km{% if d.local_entrega %} · {{ d.local_entrega|truncate(24) }}{% endif %}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td><span class="badge {{ d.prazo_tom }}">{{ d.prazo_rotulo }}</span></td>
+  {% if pode_editar() %}<td class="acao no-print"><span class="btns">
+   {% if not d.data_entrega %}<form method="post" action="{{ url_for('empenho_entregue', eid=d.edital_id, fid=d.id) }}" class="inline" data-confirm="Registrar a entrega hoje? As quantidades serão somadas ao entregue dos itens."><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="btn btn-sm btn-icon btn-ghost t-ok" title="Marcar como entregue hoje"><i class="bi bi-truck"></i></button></form>{% endif %}
+   <a class="btn btn-sm btn-icon btn-ghost" href="{{ url_for('empenho_editar', eid=d.edital_id, fid=d.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
+  </span></td>{% endif %}</tr>
+ {% else %}<tr><td colspan="10"><div class="empty"><i class="bi bi-cart"></i>Nenhum pedido {{ 'no filtro escolhido' if qs else 'lançado ainda. Abra um edital e use "+ Pedido".' }}</div></td></tr>{% endfor %}
+ </tbody>
+ {% if linhas %}<tfoot><tr><td colspan="6">Total</td><td class="num">{{ tot.valor|brl }}</td><td class="num">{{ tot.frete|brl }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
+</table></div></div>
+{% endblock %}

@@ -60,7 +60,7 @@ def montar_html(al):
         ("Recebimentos atrasados", al["atrasados"],
          lambda r: f"{r['numero']} — {r['orgao']}: {r['descricao']} · previsto {_d(r['data_prevista'])} · "
                    f"falta <b>{_brl(r['valor_previsto'] - r['valor_recebido'] - r['retencoes'])}</b>"),
-        ("Entregas de empenhos/OF vencidas ou em até 7 dias", al["entregas"],
+        ("Pedidos de compra atrasados ou com entrega em até 7 dias", al["entregas"],
          lambda r: f"{r['edital_numero']} — {r['orgao']}: {r['tipo'] or 'Empenho'} {r['numero']} · prazo "
                    f"<b>{_d(r['prazo_entrega'])}</b>{' (ATRASADO)' if r['prazo_entrega'] < hoje else ''}"),
         ("Ordens de serviço atrasadas ou programadas para os próximos 2 dias", al["ordens"],

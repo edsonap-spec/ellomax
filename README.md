@@ -22,6 +22,10 @@ Os dados ficam no arquivo `licitacoes.db` (SQLite) e os anexos na pasta `uploads
 
 ## O que tem
 
+- **Pedidos de compra:** cada pedido/empenho/OF do órgão com itens, quantidades e valores (não deixa pedir acima do
+  saldo), prazo e data de entrega com situação automática (no prazo, entregue com X dias de atraso, atrasado há X dias),
+  solicitante, local, distância em km e custo do frete (km × R$/km, padrão R$ 3,00 configurável em *Alertas e frete*).
+  Tela própria com filtros, % de entregas no prazo, frete total e exportação Excel.
 - **Ordens de serviço (OS):** numeração automática por ano (0001/2026), tipo (instalação/entrega, manutenção e limpeza,
   recolhimento, troca, vistoria), vínculo com o contrato e o empenho/OF, agenda, equipe e veículo, equipamentos com nº de
   patrimônio (pode trazer os ativos já alocados no contrato), **checklist** conforme / não conforme / não se aplica com

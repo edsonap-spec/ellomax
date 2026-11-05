@@ -21,15 +21,43 @@
  {% endfor %}
 </div>
 
+{% macro linha_pedido(d) %}
+ <tr><td><a class="forte" href="{{ url_for('empenho_editar', eid=d.edital_id, fid=d.id) }}">{{ d.numero }}</a><span class="sub">{{ d.edital_numero }} · {{ d.orgao|truncate(34) }}</span></td>
+  <td class="nowrap">{{ d.prazo_entrega|data }}<span class="sub"><span class="badge {{ d.prazo_tom }}" style="margin-top:3px">{{ d.prazo_rotulo }}</span></span></td>
+  <td class="num">{{ d.valor_total|brl }}{% if d.qtd_total %}<span class="sub">{{ d.qtd_total|num }} un.</span>{% endif %}</td>
+  {% if pode_editar() %}<td class="acao"><form method="post" action="{{ url_for('empenho_entregue', eid=d.edital_id, fid=d.id) }}" class="inline" data-confirm="Registrar a entrega do pedido {{ d.numero }} hoje?"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="voltar" value="/#pedidos"><button class="btn btn-sm btn-icon btn-ghost t-ok" title="Marcar como entregue hoje" aria-label="Marcar como entregue hoje"><i class="bi bi-truck"></i></button></form></td>{% endif %}</tr>
+{% endmacro %}
+<section class="card" id="pedidos">
+ <div class="card-head"><h2><i class="bi bi-cart-check"></i> Pedidos de compra · alertas de entrega</h2>
+  <a href="{{ url_for('pedidos') }}" class="btn btn-sm">Ver todos <i class="bi bi-arrow-right"></i></a></div>
+ <div class="card-body" style="padding-bottom:0">
+  <div class="kpis" style="margin-bottom:16px">
+   <a class="kpi tone-danger {{ 'neg' if ped.atrasados }}" href="{{ url_for('pedidos', situacao='Atrasados') }}" style="text-decoration:none;color:inherit"><div class="rot">Atrasados</div><div class="val">{{ ped.atrasados|length }}</div><div class="sub">{{ ped.valor_atrasado|brl }} a entregar</div></a>
+   <div class="kpi tone-signal"><div class="rot">Vencem hoje</div><div class="val">{{ ped.hoje }}</div><div class="sub">Prazo de entrega hoje</div></div>
+   <div class="kpi tone-info"><div class="rot">Próximos {{ ped.dias }} dias</div><div class="val">{{ ped.proximos|length }}</div><div class="sub">{{ ped.sem_prazo }} pedido(s) sem prazo informado</div></div>
+   <div class="kpi tone-ok"><div class="rot">Entregas no prazo</div><div class="val">{{ ped.pct_prazo|pct if ped.pct_prazo is not none else '—' }}</div><div class="sub">{{ ped.no_prazo }} de {{ ped.entregues }} entregues</div></div>
+  </div>
+ </div>
+ <div class="split duas" style="border-top:1px solid var(--line-2)">
+  <div>
+   <div class="ck-grupo" style="border-top:0;color:var(--danger)"><i class="bi bi-exclamation-octagon"></i> Atrasados ({{ ped.atrasados|length }})</div>
+   {% if ped.atrasados %}<div class="tbl-wrap" style="max-height:330px;overflow:auto"><table class="tbl compacta"><tbody>{% for d in ped.atrasados %}{{ linha_pedido(d) }}{% endfor %}</tbody></table></div>
+   {% else %}<div class="empty" style="padding:22px"><i class="bi bi-emoji-smile"></i>Nenhum pedido atrasado.</div>{% endif %}
+  </div>
+  <div class="lado" style="padding:0">
+   <div class="ck-grupo" style="border-top:0"><i class="bi bi-calendar-event"></i> Próximos da entrega · {{ ped.dias }} dias ({{ ped.proximos|length }})</div>
+   {% if ped.proximos %}<div class="tbl-wrap" style="max-height:330px;overflow:auto"><table class="tbl compacta"><tbody>{% for d in ped.proximos %}{{ linha_pedido(d) }}{% endfor %}</tbody></table></div>
+   {% else %}<div class="empty" style="padding:22px">Nenhuma entrega prevista para os próximos {{ ped.dias }} dias.</div>{% endif %}
+  </div>
+ </div>
+</section>
+
 <div class="pendencias">
  {% call pend('Ordens de serviço atrasadas ou nos próximos 2 dias', 'bi-clipboard2-check', al.ordens, 'Nenhuma OS pendente para os próximos dias.', 'quente' if al.ordens|selectattr('data_programada', 'lt', hoje)|list else 'morno') %}
   {% for o in al.ordens %}<li><a href="{{ url_for('os_ver', os_id=o.id) }}">OS {{ o.numero }} · {{ o.tipo }}</a><div class="det">{{ o.edital_numero }} — {{ o.orgao }}{% if o.local %} · {{ o.local }}{% endif %} · <b class="{{ 't-danger' if o.data_programada < hoje }}">{{ o.data_programada|data }}{% if o.hora_programada %} {{ o.hora_programada }}{% endif %}</b></div></li>{% endfor %}
  {% endcall %}
  {% call pend('Recebimentos atrasados', 'bi-exclamation-triangle', al.atrasados, 'Nenhum recebimento atrasado.', 'quente') %}
   {% for r in al.atrasados %}<li><a href="{{ url_for('edital_ver', eid=r.edital_id) }}#recebimentos">{{ r.numero }} — {{ r.orgao }}</a><div class="det">{{ r.descricao }} · previsto {{ r.data_prevista|data }} · falta <b class="mono">{{ (r.valor_previsto - r.valor_recebido - r.retencoes)|brl }}</b></div></li>{% endfor %}
- {% endcall %}
- {% call pend('Entregas de empenhos/OF (vencidas ou em 7 dias)', 'bi-truck', al.entregas, 'Nenhuma entrega pendente próxima.', 'quente') %}
-  {% for m in al.entregas %}<li><a href="{{ url_for('edital_ver', eid=m.edital_id) }}#empenhos">{{ m.edital_numero }} — {{ m.orgao }}</a><div class="det">{{ m.tipo or 'Empenho' }} {{ m.numero }} · prazo <b class="{{ 't-danger' if m.prazo_entrega < hoje }}">{{ m.prazo_entrega|data }}</b></div></li>{% endfor %}
  {% endcall %}
  {% call pend('A receber nos próximos 30 dias', 'bi-calendar-check', al.proximos, 'Nada previsto.', 'morno') %}
   {% for r in al.proximos %}<li><a href="{{ url_for('edital_ver', eid=r.edital_id) }}#recebimentos">{{ r.numero }} — {{ r.orgao }}</a><div class="det">{{ r.descricao }} · {{ r.data_prevista|data }} · <b class="mono">{{ (r.valor_previsto - r.valor_recebido - r.retencoes)|brl }}</b></div></li>{% endfor %}
