@@ -755,7 +755,27 @@ def dashboard():
         if e["status"] != "Encerrado":
             for k in tot:
                 tot[k] += r[k]
-    return render_template("dashboard.html", linhas=linhas, tot=tot, al=alertas.coletar_alertas(db, emp))
+    return render_template("dashboard.html", linhas=linhas, tot=tot, al=alertas.coletar_alertas(db, emp),
+                           ped=painel_pedidos())
+
+
+def painel_pedidos(dias=7):
+    """Pedidos atrasados e próximos do prazo para o painel."""
+    _, linhas, resumo = consultar_pedidos()
+    limite = (date.today() + timedelta(days=dias)).isoformat()
+    hoje_ = date.today().isoformat()
+    atrasados = sorted((d for d in linhas if d["situacao"] == "Atrasados"), key=lambda d: -d["dias_atraso"])
+    proximos = sorted((d for d in linhas if d["situacao"] == "A entregar" and d["prazo_entrega"]
+                       and d["prazo_entrega"][:10] <= limite), key=lambda d: d["prazo_entrega"])
+    entregues = resumo["Entregues no prazo"] + resumo["Entregues com atraso"]
+    return {
+        "atrasados": atrasados, "proximos": proximos, "dias": dias,
+        "valor_atrasado": sum(d["valor_total"] for d in atrasados),
+        "hoje": sum(1 for d in proximos if d["prazo_entrega"][:10] == hoje_),
+        "sem_prazo": sum(1 for d in linhas if d["situacao"] == "A entregar" and not d["prazo_entrega"]),
+        "pct_prazo": (resumo["Entregues no prazo"] / entregues * 100) if entregues else None,
+        "entregues": entregues, "no_prazo": resumo["Entregues no prazo"], "total": len(linhas),
+    }
 
 
 # ---------------------------------------------------------------- definições de formulários
@@ -1306,6 +1326,9 @@ def empenho_entregue(eid, fid):
         audit("marcou entregue", "empenhos", fid, f"edital {eid}: {row['numero']}")
         db.commit()
         flash("Entrega registrada e quantidades atualizadas nos itens.", "success")
+    voltar = request.form.get("voltar", "")
+    if voltar.startswith("/") and not voltar.startswith("//"):
+        return redirect(voltar)
     return redirect(url_for("edital_ver", eid=eid) + "#empenhos")
 
 

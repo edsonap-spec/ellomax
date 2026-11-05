@@ -314,6 +314,7 @@ details.menu .pop a.ativo{background:var(--brand-soft);color:var(--brand);font-w
 .foto .btn{background:rgba(255,255,255,.92);color:var(--danger);border:0}
 
 .split{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0}
+.split.duas{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .split>.lado{border-left:1px solid var(--line-2);padding:16px 18px;font-size:13px}
 .linha-val{display:flex;justify-content:space-between;gap:10px;padding:3px 0}
 .linha-val span:last-child{font-family:var(--mono);white-space:nowrap}
@@ -341,8 +342,9 @@ details.menu .pop a.ativo{background:var(--brand-soft);color:var(--brand);font-w
   .topbar .menu-btn{display:inline-flex}
   .conteudo{padding:18px 16px 56px}
   .page-head h1{font-size:23px}
-  .split{grid-template-columns:minmax(0,1fr)}
-  .split>.lado{border-left:0;border-top:1px solid var(--line-2)}
+  .split,.split.duas{grid-template-columns:minmax(0,1fr)}
+  .split.duas{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.split>.lado{border-left:0;border-top:1px solid var(--line-2)}
   .assin-grid{grid-template-columns:minmax(0,1fr)}
   .login-bg{grid-template-columns:minmax(0,1fr)}
   .login-arte{display:none}
