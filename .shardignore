@@ -1,0 +1,11 @@
+.git
+__pycache__/
+*.pyc
+venv/
+licitacoes.db
+.secret_key
+uploads/
+data/
+iniciar.bat
+Dockerfile
+.dockerignore

@@ -1,0 +1,6 @@
+DISPLAY_NAME=ELLOMAX Licitacoes
+DESCRIPTION=Controle de licitacoes, pedidos de compra, frete e ordens de servico da ELLOMAX
+MAIN=main.py
+MEMORY=512
+VERSION=recommended
+SUBDOMAIN=ellomaxlicitacoes

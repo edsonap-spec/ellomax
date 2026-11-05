@@ -87,6 +87,18 @@ Copie o arquivo `licitacoes.db` e a pasta `uploads/` (ou o volume `/data` no Doc
 | `ADMIN_PASSWORD` | Senha do admin criado na primeira execução |
 | `SECRET_KEY` | Chave das sessões (gerada automaticamente se não informada) |
 
+## Colocar na internet (Shard Cloud)
+
+O repositório já tem o `.shardcloud` (configuração), o `main.py` (entrada na porta 80) e o `.shardignore`.
+
+1. Em https://shardcloud.app/dash vá em **Config → Integrations → Connect with GitHub**.
+2. Crie a aplicação, abra **Deploys** e escolha o repositório `edsonap-spec/ellomax`, branch `main`.
+   (Ou envie um .zip do projeto em https://shardcloud.app/dash/applications.)
+3. Cada merge/push na `main` faz o deploy automático.
+4. Endereço: `ellomaxlicitacoes.shardweb.app` (troque `SUBDOMAIN` no `.shardcloud` se quiser outro) ou um domínio próprio nas configurações de rede do app.
+5. Defina a variável `SECRET_KEY` no app para os logins não caírem a cada deploy.
+6. O banco (`licitacoes.db`) e os anexos (`uploads/`) ficam na pasta do app. Faça backups pela Shard Cloud e confirme com o suporte que esses arquivos são mantidos entre deploys.
+
 ## Colocar na internet (VPS Hostinger + Coolify)
 
 O repositório tem um `Dockerfile` pronto. No Coolify:
