@@ -357,6 +357,32 @@ CREATE TABLE IF NOT EXISTS checklist_modelo_itens (
     grupo TEXT,
     descricao TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS contas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT NOT NULL CHECK (tipo IN ('pagar','receber')),
+    empresa_id INTEGER REFERENCES empresas(id),
+    edital_id INTEGER REFERENCES editais(id) ON DELETE SET NULL,
+    descricao TEXT NOT NULL,
+    fornecedor TEXT,
+    categoria TEXT,
+    documento TEXT,
+    codigo_barras TEXT,
+    vencimento TEXT NOT NULL,
+    valor REAL NOT NULL DEFAULT 0,
+    data_pagamento TEXT,
+    valor_pago REAL,
+    forma_pagamento TEXT,
+    parcela INTEGER,
+    total_parcelas INTEGER,
+    grupo TEXT,
+    gasto_id INTEGER REFERENCES gastos(id) ON DELETE SET NULL,
+    anexo_nome TEXT,
+    anexo_arquivo TEXT,
+    observacoes TEXT,
+    criado_por TEXT,
+    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS ix_contas_venc ON contas (tipo, vencimento);
 CREATE TABLE IF NOT EXISTS config (
     chave TEXT PRIMARY KEY,
     valor TEXT
@@ -554,6 +580,8 @@ def inject():
         sql = """SELECT COUNT(*) FROM ordens_servico os JOIN editais e ON e.id=os.edital_id
                  WHERE os.status NOT IN ('Concluída','Cancelada') AND os.data_programada <= date('now','localtime')"""
         ctx["os_pendentes"] = get_db().execute(sql + (" AND e.empresa_id=?" if emp else ""), (emp,) if emp else ()).fetchone()[0]
+        emp_ = g.user["empresa_id"] or emp
+        ctx["contas_pendentes"] = {t: contas_pendentes(t, emp_) for t in TIPOS_CONTA}
     return ctx
 
 
@@ -756,7 +784,7 @@ def dashboard():
             for k in tot:
                 tot[k] += r[k]
     return render_template("dashboard.html", linhas=linhas, tot=tot, al=alertas.coletar_alertas(db, emp),
-                           ped=painel_pedidos())
+                           ped=painel_pedidos(), fin={t: painel_contas(t) for t in TIPOS_CONTA})
 
 
 def painel_pedidos(dias=7):
@@ -1178,6 +1206,9 @@ def receb_baixar(eid, fid):
     audit("baixou", "recebimentos", fid, f"edital {eid}: {r['descricao']}")
     db.commit()
     flash("Recebimento registrado.", "success")
+    voltar = request.form.get("voltar", "")
+    if voltar.startswith("/") and not voltar.startswith("//"):
+        return redirect(voltar)
     return redirect(url_for("edital_ver", eid=eid) + "#recebimentos")
 
 
@@ -1400,6 +1431,472 @@ def pedidos_xlsx():
     _, linhas, _ = consultar_pedidos()
     return send_file(relatorios.xlsx_pedidos(linhas), as_attachment=True,
                      download_name=f"pedidos_compra_{date.today():%Y%m%d}.xlsx")
+
+
+# ---------------------------------------------------------------- financeiro: contas a pagar e a receber
+
+TIPOS_CONTA = {
+    "pagar": {"tipo": "pagar", "titulo": "Contas a pagar", "nova": "Nova conta a pagar", "pessoa": "Fornecedor / favorecido",
+              "pessoa_curta": "Fornecedor", "quitadas": "Pagas", "quitada": "Paga", "acao": "Pagar", "data_q": "Pago em",
+              "valor_q": "Valor pago", "icone": "bi-wallet2", "vencidas": "Vencidas",
+              "sub": "Boletos, fornecedores, impostos e despesas fixas. Conta paga e ligada a um contrato entra nos gastos dele."},
+    "receber": {"tipo": "receber", "titulo": "Contas a receber", "nova": "Nova conta a receber", "pessoa": "Cliente / pagador",
+                "pessoa_curta": "Cliente", "quitadas": "Recebidas", "quitada": "Recebida", "acao": "Receber",
+                "data_q": "Recebido em", "valor_q": "Valor recebido", "icone": "bi-cash-coin", "vencidas": "Atrasadas",
+                "sub": "Locações e serviços para clientes particulares e outras entradas. Os recebimentos lançados nos "
+                       "contratos públicos aparecem aqui automaticamente."},
+}
+CATEGORIA_CONTRATO = "Contratos públicos"
+CATEGORIAS_CONTA = {
+    "pagar": ["Fornecedores / mercadoria", "Frete / combustível", "Manutenção de veículos e equipamentos",
+              "Folha / pró-labore", "Impostos e taxas", "Aluguel e condomínio", "Água, luz, telefone e internet",
+              "Serviços de terceiros", "Empréstimos e tarifas bancárias", "Outros"],
+    "receber": ["Locação de banheiros químicos", "Locação de contêineres", "Limpeza e manutenção", "Eventos",
+                "Venda de produtos", "Serviços avulsos", "Reembolsos", "Outros"],
+}
+# categoria da conta a pagar -> categoria do gasto no contrato
+CONTA_PARA_GASTO = {"Fornecedores / mercadoria": "Mercadoria / insumo", "Frete / combustível": "Frete / logística",
+                    "Impostos e taxas": CATEGORIA_IMPOSTOS, "Folha / pró-labore": "Mão de obra"}
+FORMAS_PAGAMENTO = ["Boleto", "PIX", "Transferência", "Cartão", "Dinheiro", "Débito automático", "Cheque"]
+SITUACOES_CONTA = ["Vencidas", "Vencem hoje", "A vencer", "Quitadas"]
+MODOS_LANCAMENTO = {"unica": "Conta única", "parcelada": "Parcelada (divide o valor)",
+                    "mensal": "Recorrente mensal (repete o valor)"}
+
+SQL_CONTAS = """SELECT c.*, e.numero AS edital_numero, e.orgao, emp.razao_social AS empresa
+    FROM contas c LEFT JOIN editais e ON e.id=c.edital_id LEFT JOIN empresas emp ON emp.id=c.empresa_id"""
+SQL_RECEB_CONTRATOS = """SELECT r.*, e.numero AS edital_numero, e.orgao, e.empresa_id, emp.razao_social AS empresa
+    FROM recebimentos r JOIN editais e ON e.id=r.edital_id LEFT JOIN empresas emp ON emp.id=e.empresa_id
+    WHERE e.status != 'Cancelado'"""
+
+
+def tipo_conta(tipo):
+    if tipo not in TIPOS_CONTA:
+        abort(404)
+    g.nav_conta = tipo
+    return TIPOS_CONTA[tipo]
+
+
+def somar_meses(d, meses):
+    """Mesma data N meses depois; dia 31 vira o último dia do mês quando necessário."""
+    m = d.month - 1 + meses
+    ano, mes = d.year + m // 12, m % 12 + 1
+    prox = date(ano + (mes == 12), mes % 12 + 1, 1)
+    return date(ano, mes, min(d.day, (prox - timedelta(days=1)).day))
+
+
+def situacao_conta(vencimento, quitada_em, tipo):
+    """(situação, rótulo do selo, classe do selo, dias de atraso)."""
+    T = TIPOS_CONTA[tipo]
+    if quitada_em:
+        if vencimento and quitada_em[:10] > vencimento[:10]:
+            d = (date.fromisoformat(quitada_em[:10]) - date.fromisoformat(vencimento[:10])).days
+            return "Quitadas", f"{T['quitada']} com {d} dia{'s' if d > 1 else ''} de atraso", "b-warn", 0
+        return "Quitadas", T["quitada"], "b-ok", 0
+    if not vencimento:
+        return "A vencer", "Sem data prevista", "", 0
+    d = (date.fromisoformat(vencimento[:10]) - date.today()).days
+    if d < 0:
+        rot = "Vencida" if tipo == "pagar" else "Atrasada"
+        return "Vencidas", f"{rot} há {-d} dia{'s' if d < -1 else ''}", "b-danger", -d
+    if d == 0:
+        return "Vencem hoje", "Vence hoje", "b-signal", 0
+    return "A vencer", f"Vence em {d} dia{'s' if d > 1 else ''}", ("b-signal" if d <= 3 else ""), 0
+
+
+def _linha_conta(c):
+    d = dict(c)
+    d["origem"] = "conta"
+    d["situacao"], d["rotulo"], d["tom"], d["dias_atraso"] = situacao_conta(d["vencimento"], d["data_pagamento"], d["tipo"])
+    d["titulo"] = d["descricao"] + (f" ({d['parcela']}/{d['total_parcelas']})" if d["total_parcelas"] else "")
+    d["valor_aberto"] = 0 if d["data_pagamento"] else d["valor"]
+    return d
+
+
+def _linha_recebimento(r):
+    """Recebimento de contrato no mesmo formato de uma conta a receber."""
+    aberto = round(r["valor_previsto"] - r["valor_recebido"] - r["retencoes"], 2)
+    quitada = r["data_recebimento"] if aberto <= 0.004 else None
+    d = {"origem": "contrato", "id": r["id"], "tipo": "receber", "edital_id": r["edital_id"],
+         "edital_numero": r["edital_numero"], "orgao": r["orgao"], "empresa_id": r["empresa_id"], "empresa": r["empresa"],
+         "descricao": r["descricao"], "titulo": r["descricao"], "fornecedor": r["orgao"], "categoria": CATEGORIA_CONTRATO,
+         "documento": r["nota_fiscal"], "codigo_barras": None, "vencimento": r["data_prevista"], "valor": r["valor_previsto"],
+         "data_pagamento": quitada, "valor_pago": r["valor_recebido"] + r["retencoes"] if quitada else None,
+         "retencoes": r["retencoes"], "forma_pagamento": None, "parcela": None, "total_parcelas": None, "grupo": None,
+         "anexo_arquivo": None, "anexo_nome": None, "observacoes": r["observacoes"],
+         "valor_aberto": 0 if quitada else max(aberto, 0), "recebido_parcial": r["valor_recebido"] if not quitada else 0}
+    d["situacao"], d["rotulo"], d["tom"], d["dias_atraso"] = situacao_conta(r["data_prevista"], quitada, "receber")
+    if d["recebido_parcial"] > 0.004 and not quitada:
+        d["rotulo"] += " · parcial"
+    return d
+
+
+def _empresa_filtro():
+    return g.user["empresa_id"] or empresa_atual()
+
+
+def listar_contas(tipo, f):
+    """Todas as contas do tipo (qualquer situação) que atendem aos filtros f."""
+    db = get_db()
+    emp = _empresa_filtro()
+    q = (f.get("q") or "").strip()
+    cat = f.get("categoria") or ""
+    ed = int(f["edital_id"]) if (f.get("edital_id") or "").isdigit() else None
+    linhas = []
+    if cat != CATEGORIA_CONTRATO:
+        sql, args = SQL_CONTAS + " WHERE c.tipo=?", [tipo]
+        if q:
+            sql += " AND (c.descricao LIKE ? OR c.fornecedor LIKE ? OR c.documento LIKE ? OR e.numero LIKE ?)"
+            args += [f"%{q}%"] * 4
+        if cat in CATEGORIAS_CONTA[tipo]:
+            sql += " AND c.categoria=?"
+            args.append(cat)
+        if ed:
+            sql += " AND c.edital_id=?"
+            args.append(ed)
+        if f.get("de"):
+            sql += " AND c.vencimento >= ?"
+            args.append(f["de"])
+        if f.get("ate"):
+            sql += " AND c.vencimento <= ?"
+            args.append(f["ate"])
+        if emp:
+            sql += " AND c.empresa_id=?"
+            args.append(emp)
+        linhas += [_linha_conta(c) for c in db.execute(sql, args)]
+    if tipo == "receber" and (not cat or cat == CATEGORIA_CONTRATO):
+        sql, args = SQL_RECEB_CONTRATOS, []
+        if q:
+            sql += " AND (r.descricao LIKE ? OR e.orgao LIKE ? OR r.nota_fiscal LIKE ? OR e.numero LIKE ?)"
+            args += [f"%{q}%"] * 4
+        if ed:
+            sql += " AND r.edital_id=?"
+            args.append(ed)
+        if f.get("de"):
+            sql += " AND r.data_prevista >= ?"
+            args.append(f["de"])
+        if f.get("ate"):
+            sql += " AND r.data_prevista <= ?"
+            args.append(f["ate"])
+        if emp:
+            sql += " AND e.empresa_id=?"
+            args.append(emp)
+        linhas += [_linha_recebimento(r) for r in db.execute(sql, args)]
+    linhas.sort(key=lambda d: (d["vencimento"] or "9999", d["origem"], d["id"]))
+    return linhas
+
+
+def resumo_contas(linhas):
+    resumo = {s: {"qtd": 0, "valor": 0} for s in SITUACOES_CONTA}
+    for d in linhas:
+        resumo[d["situacao"]]["qtd"] += 1
+        resumo[d["situacao"]]["valor"] += (d["valor_pago"] or 0) if d["situacao"] == "Quitadas" else d["valor_aberto"]
+    return resumo
+
+
+def painel_contas(tipo, dias=7):
+    """Vencidas, de hoje e dos próximos dias (em aberto) + quitado no mês."""
+    limite = (date.today() + timedelta(days=dias)).isoformat()
+    abertas = [d for d in listar_contas(tipo, {"ate": limite}) if d["situacao"] != "Quitadas"]
+    vencidas = [d for d in abertas if d["situacao"] == "Vencidas"]
+    proximas = [d for d in abertas if d["situacao"] != "Vencidas"]
+    hoje_ = [d for d in proximas if d["situacao"] == "Vencem hoje"]
+    quitadas_mes = [d for d in listar_contas(tipo, {})
+                    if d["data_pagamento"] and d["data_pagamento"] >= date.today().replace(day=1).isoformat()]
+    return {"T": TIPOS_CONTA[tipo], "abertas": abertas, "vencidas": vencidas, "proximas": proximas, "hoje": hoje_,
+            "dias": dias, "valor_vencido": sum(d["valor_aberto"] for d in vencidas),
+            "valor_hoje": sum(d["valor_aberto"] for d in hoje_), "valor_proximas": sum(d["valor_aberto"] for d in proximas),
+            "quitado_mes": sum(d["valor_pago"] or 0 for d in quitadas_mes), "qtd_quitado_mes": len(quitadas_mes)}
+
+
+def contas_pendentes(tipo, emp):
+    """Quantidade vencida ou vencendo hoje (para o menu lateral)."""
+    db = get_db()
+    sql = "SELECT COUNT(*) FROM contas WHERE tipo=? AND data_pagamento IS NULL AND vencimento <= date('now','localtime')"
+    n = db.execute(sql + (" AND empresa_id=?" if emp else ""), (tipo, emp) if emp else (tipo,)).fetchone()[0]
+    if tipo == "receber":
+        sql = """SELECT COUNT(*) FROM recebimentos r JOIN editais e ON e.id=r.edital_id
+                 WHERE r.valor_recebido + r.retencoes < r.valor_previsto - 0.004 AND e.status != 'Cancelado'
+                 AND r.data_prevista <= date('now','localtime')"""
+        n += db.execute(sql + (" AND e.empresa_id=?" if emp else ""), (emp,) if emp else ()).fetchone()[0]
+    return n
+
+
+def get_conta(cid):
+    c = get_db().execute(SQL_CONTAS + " WHERE c.id=?", (cid,)).fetchone() or abort(404)
+    if g.user["empresa_id"] and c["empresa_id"] != g.user["empresa_id"]:
+        abort(404)
+    g.nav_conta = c["tipo"]
+    return c
+
+
+def _sincronizar_gasto(db, cid):
+    """Conta a pagar paga e ligada a um contrato vira gasto do contrato (entra no lucro); senão o gasto sai."""
+    c = db.execute("SELECT * FROM contas WHERE id=?", (cid,)).fetchone()
+    if c["tipo"] == "pagar" and c["data_pagamento"] and c["edital_id"]:
+        dados = (c["edital_id"], c["data_pagamento"], CONTA_PARA_GASTO.get(c["categoria"], "Outros"),
+                 c["descricao"] + (f" ({c['parcela']}/{c['total_parcelas']})" if c["total_parcelas"] else ""),
+                 c["fornecedor"], c["documento"], c["valor_pago"] or 0)
+        existe = c["gasto_id"] and db.execute("SELECT 1 FROM gastos WHERE id=?", (c["gasto_id"],)).fetchone()
+        if existe:
+            db.execute("""UPDATE gastos SET edital_id=?, data=?, categoria=?, descricao=?, fornecedor=?, documento=?, valor=?
+                          WHERE id=?""", dados + (c["gasto_id"],))
+        else:
+            gid = db.execute("""INSERT INTO gastos (edital_id, data, categoria, descricao, fornecedor, documento, valor)
+                                VALUES (?,?,?,?,?,?,?)""", dados).lastrowid
+            db.execute("UPDATE contas SET gasto_id=? WHERE id=?", (gid, cid))
+    elif c["gasto_id"]:
+        db.execute("DELETE FROM gastos WHERE id=?", (c["gasto_id"],))
+        db.execute("UPDATE contas SET gasto_id=NULL WHERE id=?", (cid,))
+
+
+def _pasta_contas():
+    pasta = os.path.join(UPLOAD_DIR, "contas")
+    os.makedirs(pasta, exist_ok=True)
+    return pasta
+
+
+def _remover_anexo_conta(arquivo):
+    if arquivo:
+        try:
+            os.remove(os.path.join(_pasta_contas(), arquivo))
+        except OSError:
+            pass
+
+
+def _voltar_seguro(valor, padrao):
+    return valor if valor and valor.startswith("/") and not valor.startswith("//") else padrao
+
+
+@app.route("/contas/<tipo>")
+@login_required
+def contas(tipo):
+    T = tipo_conta(tipo)
+    f = request.args
+    linhas = listar_contas(tipo, f)
+    resumo = resumo_contas(linhas)
+    st = f.get("situacao", "")
+    if st == "Em aberto":
+        linhas = [d for d in linhas if d["situacao"] != "Quitadas"]
+    elif st in SITUACOES_CONTA:
+        linhas = [d for d in linhas if d["situacao"] == st]
+    filtros = {k: f.get(k, "") for k in ("q", "categoria", "edital_id", "de", "ate", "situacao")}
+    tot = {"qtd": len(linhas), "valor": sum(d["valor"] for d in linhas),
+           "aberto": sum(d["valor_aberto"] for d in linhas),
+           "quitado": sum(d["valor_pago"] or 0 for d in linhas if d["data_pagamento"])}
+    categorias = CATEGORIAS_CONTA[tipo] + ([CATEGORIA_CONTRATO] if tipo == "receber" else [])
+    return render_template("contas.html", T=T, linhas=linhas, f=filtros, resumo=resumo, tot=tot, pc=painel_contas(tipo),
+                           SITUACOES=SITUACOES_CONTA, CATEGORIAS=categorias, editais=editais_para_os())
+
+
+@app.route("/contas/<tipo>/exportar.xlsx")
+@login_required
+def contas_xlsx(tipo):
+    T = tipo_conta(tipo)
+    linhas = listar_contas(tipo, request.args)
+    st = request.args.get("situacao", "")
+    if st == "Em aberto":
+        linhas = [d for d in linhas if d["situacao"] != "Quitadas"]
+    elif st in SITUACOES_CONTA:
+        linhas = [d for d in linhas if d["situacao"] == st]
+    return send_file(relatorios.xlsx_contas(linhas, T), as_attachment=True,
+                     download_name=f"contas_a_{tipo}_{date.today():%Y%m%d}.xlsx")
+
+
+@app.route("/contas/<tipo>/nova", methods=["GET", "POST"])
+@editor_required
+def conta_nova(tipo):
+    tipo_conta(tipo)
+    return conta_form(tipo, None)
+
+
+@app.route("/contas/<int:cid>/editar", methods=["GET", "POST"])
+@editor_required
+def conta_editar(cid):
+    atual = get_conta(cid)
+    return conta_form(atual["tipo"], atual)
+
+
+def conta_form(tipo, atual):
+    T = TIPOS_CONTA[tipo]
+    db = get_db()
+    cid = atual["id"] if atual else None
+    empresas_ = empresas_permitidas()
+    ids_emp = {e["id"] for e in empresas_}
+    editais_ = editais_para_os(atual["edital_id"] if atual else None) if tipo == "pagar" else []
+    ids_ed = {e["id"] for e in editais_}
+    voltar = _voltar_seguro(request.values.get("voltar", ""), url_for("contas", tipo=tipo))
+    form = request.form if request.method == "POST" else None
+    if form:
+        erros = []
+        descricao = form.get("descricao", "").strip()
+        if not descricao:
+            erros.append("Informe a descrição da conta.")
+        try:
+            venc = date.fromisoformat(form.get("vencimento", ""))
+        except ValueError:
+            venc = None
+            erros.append("Informe a data de vencimento.")
+        try:
+            valor = parse_num(form.get("valor")) or 0
+            valor_pago = parse_num(form.get("valor_pago"))
+        except ValueError as x:
+            erros.append(f"Valor: {x}")
+            valor, valor_pago = 0, None
+        if valor <= 0:
+            erros.append("O valor da conta deve ser maior que zero.")
+        emp_id = int(form["empresa_id"]) if (form.get("empresa_id") or "").isdigit() else None
+        if emp_id not in ids_emp:
+            erros.append("Escolha a empresa.")
+        ed_id = int(form["edital_id"]) if (form.get("edital_id") or "").isdigit() else None
+        if ed_id not in ids_ed:
+            ed_id = None
+        data_pag = form.get("data_pagamento") or None
+        if data_pag and valor_pago is None:
+            valor_pago = valor
+        modo = form.get("modo") if form.get("modo") in MODOS_LANCAMENTO and not atual else "unica"
+        try:
+            n = int(form.get("qtd_parcelas") or 1)
+        except ValueError:
+            n = 0
+        if modo != "unica" and not 2 <= n <= 120:
+            erros.append("Informe de 2 a 120 parcelas / meses.")
+        if erros:
+            for x in erros:
+                flash(x, "danger")
+        else:
+            comum = {
+                "empresa_id": emp_id, "edital_id": ed_id, "descricao": descricao,
+                "fornecedor": form.get("fornecedor", "").strip() or None,
+                "categoria": form.get("categoria") if form.get("categoria") in CATEGORIAS_CONTA[tipo] else None,
+                "documento": form.get("documento", "").strip() or None,
+                "codigo_barras": form.get("codigo_barras", "").strip() or None,
+                "forma_pagamento": form.get("forma_pagamento") if form.get("forma_pagamento") in FORMAS_PAGAMENTO else None,
+                "observacoes": form.get("observacoes", "").strip() or None,
+            }
+            arq = request.files.get("anexo")
+            anexo = None
+            if arq and arq.filename:
+                ext = arq.filename.rsplit(".", 1)[-1].lower() if "." in arq.filename else ""
+                if ext in EXTENSOES_ANEXO | EXTENSOES_FOTO:
+                    nome_disco = f"{uuid.uuid4().hex}.{ext}"
+                    arq.save(os.path.join(_pasta_contas(), nome_disco))
+                    anexo = (arq.filename, nome_disco)
+                else:
+                    flash(f"Tipo de arquivo não permitido: {arq.filename}. A conta foi salva sem o anexo.", "warning")
+            if atual:
+                dados = dict(comum, vencimento=venc.isoformat(), valor=valor, data_pagamento=data_pag,
+                             valor_pago=valor_pago if data_pag else None)
+                if anexo:
+                    _remover_anexo_conta(atual["anexo_arquivo"])
+                    dados["anexo_nome"], dados["anexo_arquivo"] = anexo
+                elif form.get("remover_anexo"):
+                    _remover_anexo_conta(atual["anexo_arquivo"])
+                    dados["anexo_nome"] = dados["anexo_arquivo"] = None
+                cols = list(dados)
+                db.execute(f"UPDATE contas SET {', '.join(c + '=?' for c in cols)} WHERE id=?",
+                           [dados[c] for c in cols] + [cid])
+                _sincronizar_gasto(db, cid)
+                audit("editou", "contas", cid, f"a {tipo}: {descricao}")
+                msg = "Conta atualizada."
+            else:
+                if modo == "unica":
+                    valores_ = [(venc, valor)]
+                elif modo == "parcelada":
+                    base = round(valor / n, 2)
+                    valores_ = [(somar_meses(venc, i), base) for i in range(n - 1)]
+                    valores_.append((somar_meses(venc, n - 1), round(valor - base * (n - 1), 2)))
+                else:
+                    valores_ = [(somar_meses(venc, i), valor) for i in range(n)]
+                grupo = uuid.uuid4().hex if len(valores_) > 1 else None
+                for i, (v_, val_) in enumerate(valores_, start=1):
+                    pago_ = data_pag if i == 1 else None
+                    dados = dict(comum, tipo=tipo, vencimento=v_.isoformat(), valor=val_, data_pagamento=pago_,
+                                 valor_pago=(valor_pago if modo == "unica" else val_) if pago_ else None,
+                                 parcela=i if grupo else None, total_parcelas=len(valores_) if grupo else None,
+                                 grupo=grupo, criado_por=g.user["nome"])
+                    if anexo and i == 1:
+                        dados["anexo_nome"], dados["anexo_arquivo"] = anexo
+                    cols = list(dados)
+                    nid = db.execute(f"INSERT INTO contas ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                                     [dados[c] for c in cols]).lastrowid
+                    _sincronizar_gasto(db, nid)
+                    audit("criou", "contas", nid, f"a {tipo}: {dados['descricao']}")
+                msg = (f"{len(valores_)} parcelas lançadas, de {fmt_data(valores_[0][0].isoformat())} a "
+                       f"{fmt_data(valores_[-1][0].isoformat())}." if grupo else "Conta lançada.")
+            db.commit()
+            flash(msg + (" O pagamento entrou nos gastos do contrato." if ed_id and data_pag else ""), "success")
+            return redirect(voltar)
+    if form:
+        valores = form
+    elif atual:
+        valores = dict(atual)
+        valores["valor"] = f"{atual['valor']:.2f}".replace(".", ",")
+        if atual["valor_pago"] is not None:
+            valores["valor_pago"] = f"{atual['valor_pago']:.2f}".replace(".", ",")
+    else:
+        valores = {"empresa_id": empresa_atual() or (empresas_[0]["id"] if empresas_ else None),
+                   "edital_id": request.args.get("edital_id", ""), "modo": "unica", "qtd_parcelas": "2"}
+    return render_template("conta_form.html", T=T, valores=valores, atual=atual, empresas=empresas_, editais=editais_,
+                           voltar=voltar, CATEGORIAS=CATEGORIAS_CONTA[tipo], FORMAS=FORMAS_PAGAMENTO,
+                           MODOS=MODOS_LANCAMENTO)
+
+
+@app.route("/contas/<int:cid>/quitar", methods=["POST"])
+@editor_required
+def conta_quitar(cid):
+    c = get_conta(cid)
+    db = get_db()
+    if not c["data_pagamento"]:
+        db.execute("UPDATE contas SET data_pagamento=date('now','localtime'), valor_pago=valor WHERE id=?", (cid,))
+        _sincronizar_gasto(db, cid)
+        audit("pagou" if c["tipo"] == "pagar" else "recebeu", "contas", cid, f"{c['descricao']} · {brl(c['valor'])}")
+        db.commit()
+        verbo = "Pagamento" if c["tipo"] == "pagar" else "Recebimento"
+        flash(f"{verbo} de {brl(c['valor'])} registrado com a data de hoje.", "success")
+    return redirect(_voltar_seguro(request.form.get("voltar"), url_for("contas", tipo=c["tipo"])))
+
+
+@app.route("/contas/<int:cid>/estornar", methods=["POST"])
+@editor_required
+def conta_estornar(cid):
+    c = get_conta(cid)
+    db = get_db()
+    if c["data_pagamento"]:
+        db.execute("UPDATE contas SET data_pagamento=NULL, valor_pago=NULL WHERE id=?", (cid,))
+        _sincronizar_gasto(db, cid)
+        audit("estornou", "contas", cid, c["descricao"])
+        db.commit()
+        flash("Baixa desfeita. A conta voltou a ficar em aberto.", "success")
+    return redirect(_voltar_seguro(request.form.get("voltar"), url_for("contas", tipo=c["tipo"])))
+
+
+@app.route("/contas/<int:cid>/excluir", methods=["POST"])
+@editor_required
+def conta_excluir(cid):
+    c = get_conta(cid)
+    db = get_db()
+    alvos = [c]
+    if request.form.get("todas_abertas") and c["grupo"]:
+        alvos = db.execute("SELECT * FROM contas WHERE grupo=? AND (id=? OR data_pagamento IS NULL)",
+                           (c["grupo"], cid)).fetchall()
+    for a in alvos:
+        if a["gasto_id"]:
+            db.execute("DELETE FROM gastos WHERE id=?", (a["gasto_id"],))
+        db.execute("DELETE FROM contas WHERE id=?", (a["id"],))
+        _remover_anexo_conta(a["anexo_arquivo"])
+        audit("excluiu", "contas", a["id"], f"a {c['tipo']}: {a['descricao']}")
+    db.commit()
+    flash(f"{len(alvos)} contas excluídas." if len(alvos) > 1 else "Conta excluída.", "success")
+    return redirect(url_for("contas", tipo=c["tipo"]))
+
+
+@app.route("/contas/<int:cid>/anexo")
+@login_required
+def conta_anexo(cid):
+    c = get_conta(cid)
+    if not c["anexo_arquivo"]:
+        abort(404)
+    return send_from_directory(_pasta_contas(), c["anexo_arquivo"], as_attachment=True, download_name=c["anexo_nome"])
 
 
 # ---------------------------------------------------------------- anexos

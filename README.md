@@ -22,6 +22,12 @@ Os dados ficam no arquivo `licitacoes.db` (SQLite) e os anexos na pasta `uploads
 
 ## O que tem
 
+- **Financeiro (contas a pagar e a receber):** vencimento, valor, fornecedor/cliente, categoria, documento, linha
+  digitável ou PIX, forma de pagamento e anexo do boleto/comprovante. Lançamento único, **parcelado** (divide o valor)
+  ou **recorrente mensal** (repete o valor). Baixa com um clique (ou com juros/desconto na edição) e estorno. Conta a
+  pagar ligada a um contrato entra nos gastos dele quando paga. O contas a receber reúne as contas de clientes
+  particulares e os recebimentos lançados nos contratos públicos. Filtros, totais, Excel, contador no menu, bloco no
+  painel e alerta por e-mail (a pagar vencendo em até 3 dias e a receber atrasado).
 - **Pedidos de compra:** cada pedido/empenho/OF do órgão com itens, quantidades e valores (não deixa pedir acima do
   saldo), prazo e data de entrega com situação automática (no prazo, entregue com X dias de atraso, atrasado há X dias),
   solicitante, local, distância em km e custo do frete (km × R$/km, padrão R$ 3,00 configurável em *Alertas e frete*).

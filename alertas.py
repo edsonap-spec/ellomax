@@ -35,6 +35,12 @@ def coletar_alertas(db, empresa_id=None):
         "ordens": q("""SELECT os.*, e.numero AS edital_numero, e.orgao FROM ordens_servico os JOIN editais e ON e.id=os.edital_id
             WHERE os.status NOT IN ('Concluída','Cancelada') AND COALESCE(os.data_programada,'') != ''
             AND os.data_programada <= date('now','localtime','+2 days') {F} ORDER BY os.data_programada, os.hora_programada"""),
+        "contas_pagar": db.execute("""SELECT * FROM contas WHERE tipo='pagar' AND data_pagamento IS NULL
+            AND vencimento <= date('now','localtime','+3 days')"""
+            + (" AND empresa_id = :emp" if empresa_id else "") + " ORDER BY vencimento", p).fetchall(),
+        "contas_receber": db.execute("""SELECT * FROM contas WHERE tipo='receber' AND data_pagamento IS NULL
+            AND vencimento < date('now','localtime')"""
+            + (" AND empresa_id = :emp" if empresa_id else "") + " ORDER BY vencimento", p).fetchall(),
         "devolucoes": q("""SELECT al.*, a.nome AS ativo_nome, a.unidade, e.numero, e.orgao FROM alocacoes al
             JOIN ativos a ON a.id=al.ativo_id JOIN editais e ON e.id=al.edital_id
             WHERE COALESCE(al.data_retorno,'') = '' AND COALESCE(al.data_prevista_retorno,'') != ''
@@ -54,12 +60,22 @@ def _d(v):
         return v or ""
 
 
+def _conta(r):
+    parc = f" ({r['parcela']}/{r['total_parcelas']})" if r["total_parcelas"] else ""
+    return f"{r['descricao']}{parc}" + (f" — {r['fornecedor']}" if r["fornecedor"] else "")
+
+
 def montar_html(al):
     hoje = date.today().isoformat()
     secoes = [
         ("Recebimentos atrasados", al["atrasados"],
          lambda r: f"{r['numero']} — {r['orgao']}: {r['descricao']} · previsto {_d(r['data_prevista'])} · "
                    f"falta <b>{_brl(r['valor_previsto'] - r['valor_recebido'] - r['retencoes'])}</b>"),
+        ("Contas a pagar vencidas ou vencendo em até 3 dias", al["contas_pagar"],
+         lambda r: f"{_conta(r)} · <b>{_brl(r['valor'])}</b> · vence <b>{_d(r['vencimento'])}</b>"
+                   f"{' (VENCIDA)' if r['vencimento'] < hoje else ''}"),
+        ("Contas a receber atrasadas (clientes particulares)", al["contas_receber"],
+         lambda r: f"{_conta(r)} · <b>{_brl(r['valor'])}</b> · venceu <b>{_d(r['vencimento'])}</b>"),
         ("Pedidos de compra atrasados ou com entrega em até 7 dias", al["entregas"],
          lambda r: f"{r['edital_numero']} — {r['orgao']}: {r['tipo'] or 'Empenho'} {r['numero']} · prazo "
                    f"<b>{_d(r['prazo_entrega'])}</b>{' (ATRASADO)' if r['prazo_entrega'] < hoje else ''}"),
