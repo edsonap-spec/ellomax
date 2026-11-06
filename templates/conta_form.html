@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ T.titulo }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('contas', tipo=T.tipo) }}">{{ T.titulo }}</a> / {{ 'Nova' if not atual else 'Editar' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">Financeiro · {{ T.titulo }}</div>
+ <h1>{{ T.nova if not atual else 'Editar conta' }}</h1>
+ <div class="sub">{% if atual and atual.total_parcelas %}Parcela {{ atual.parcela }} de {{ atual.total_parcelas }}. As mudanças valem só para esta parcela.{% elif T.tipo == 'pagar' %}Lance um boleto, uma compra parcelada ou uma despesa que se repete todo mês.{% else %}Lance uma locação, um serviço avulso ou um contrato particular com cobrança mensal. Recebimentos de contratos públicos são lançados no próprio contrato.{% endif %}</div></div></div>
+<form method="post" enctype="multipart/form-data">
+ <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+ <input type="hidden" name="voltar" value="{{ voltar }}">
+ <div class="card"><div class="card-body"><div class="form-grid">
+  <div class="field c-6"><label>Descrição <span class="req">*</span></label><input type="text" name="descricao" value="{{ valores.get('descricao') or '' }}" required placeholder="{{ 'Ex.: Boleto produtos de limpeza, aluguel do galpão' if T.tipo == 'pagar' else 'Ex.: Locação de 10 banheiros, evento de sábado' }}"></div>
+  <div class="field c-6"><label>{{ T.pessoa }}</label><input type="text" name="fornecedor" value="{{ valores.get('fornecedor') or '' }}"></div>
+  <div class="field c-4"><label>Categoria</label><select name="categoria"><option value="">—</option>{% for c in CATEGORIAS %}<option {% if valores.get('categoria') == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="field c-4"><label>Empresa <span class="req">*</span></label><select name="empresa_id">{% for e in empresas %}<option value="{{ e.id }}" {% if e.id|string == valores.get('empresa_id')|string %}selected{% endif %}>{{ e.razao_social }}</option>{% endfor %}</select></div>
+  {% if T.tipo == 'pagar' %}
+  <div class="field c-4"><label>Contrato (opcional)</label><select name="edital_id"><option value="">Despesa geral da empresa</option>{% for e in editais %}<option value="{{ e.id }}" {% if e.id|string == valores.get('edital_id')|string %}selected{% endif %}>{{ e.numero }} — {{ e.orgao|truncate(40) }}</option>{% endfor %}</select>
+   <div class="hint">Quando paga, a conta entra nos gastos do contrato e no lucro.</div></div>
+  {% endif %}
+
+  <div class="secao-form">Vencimento e valor</div>
+  <div class="field c-3"><label>{{ 'Vencimento' if atual else 'Vencimento (1ª parcela)' }} <span class="req">*</span></label><input type="date" name="vencimento" value="{{ valores.get('vencimento') or '' }}" required></div>
+  <div class="field c-3"><label>{{ 'Valor' if atual else 'Valor total' }} <span class="req">*</span></label><div class="prefix"><span>R$</span><input type="text" name="valor" class="num-in" inputmode="decimal" value="{{ valores.get('valor') or '' }}" placeholder="0,00" required></div></div>
+  {% if not atual %}
+  <div class="field c-4"><label>Lançamento</label><select name="modo">{% for k, rot in MODOS.items() %}<option value="{{ k }}" {% if valores.get('modo') == k %}selected{% endif %}>{{ rot }}</option>{% endfor %}</select>
+   <div class="hint">Parcelada divide o valor; recorrente repete o mesmo valor todo mês.</div></div>
+  <div class="field c-2"><label>Parcelas / meses</label><input type="number" name="qtd_parcelas" min="2" max="120" value="{{ valores.get('qtd_parcelas') or 2 }}"></div>
+  {% endif %}
+  <div class="field c-3"><label>Nº do documento / NF</label><input type="text" name="documento" value="{{ valores.get('documento') or '' }}"></div>
+  <div class="field c-9"><label>Linha digitável do boleto ou chave PIX</label><input type="text" name="codigo_barras" value="{{ valores.get('codigo_barras') or '' }}" class="mono"></div>
+
+  <div class="secao-form">{{ 'Pagamento' if T.tipo == 'pagar' else 'Recebimento' }}</div>
+  <div class="field c-3"><label>{{ T.data_q }}</label><input type="date" name="data_pagamento" value="{{ valores.get('data_pagamento') or '' }}">
+   <div class="hint">{{ 'Deixe vazio enquanto estiver em aberto.' if atual else 'Só se já estiver quitada (vale para a 1ª parcela).' }}</div></div>
+  <div class="field c-3"><label>{{ T.valor_q }}</label><div class="prefix"><span>R$</span><input type="text" name="valor_pago" class="num-in" inputmode="decimal" value="{{ valores.get('valor_pago') or '' }}" placeholder="igual ao valor"></div>
+   <div class="hint">Com juros, multa ou desconto.</div></div>
+  <div class="field c-3"><label>Forma de pagamento</label><select name="forma_pagamento"><option value="">—</option>{% for fp in FORMAS %}<option {% if valores.get('forma_pagamento') == fp %}selected{% endif %}>{{ fp }}</option>{% endfor %}</select></div>
+  <div class="field c-3"><label>{{ 'Boleto / comprovante' if T.tipo == 'pagar' else 'Nota / comprovante' }}</label><input type="file" name="anexo" accept=".pdf,.jpg,.jpeg,.png,.xml,.doc,.docx,.xls,.xlsx">
+   {% if atual and atual.anexo_arquivo %}<div class="hint"><a href="{{ url_for('conta_anexo', cid=atual.id) }}"><i class="bi bi-paperclip"></i> {{ atual.anexo_nome }}</a> · <label class="check" style="min-height:0"><input type="checkbox" name="remover_anexo" value="1"> remover</label></div>{% endif %}</div>
+  <div class="field c-12"><label>Observações</label><input type="text" name="observacoes" value="{{ valores.get('observacoes') or '' }}"></div>
+ </div></div></div>
+ <div class="acoes"><button class="btn btn-primary"><i class="bi bi-check-lg"></i> Salvar</button><a href="{{ voltar }}" class="btn btn-ghost">Cancelar</a></div>
+</form>
+{% if atual %}
+<form method="post" action="{{ url_for('conta_excluir', cid=atual.id) }}" class="card no-print" style="margin-top:22px" data-confirm="Excluir esta conta?{{ ' Se estiver paga e ligada a um contrato, o gasto também sai do contrato.' if T.tipo == 'pagar' else '' }}">
+ <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+ <div class="card-body" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+  <button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i> Excluir conta</button>
+  {% if atual.grupo %}<label class="check"><input type="checkbox" name="todas_abertas" value="1"> Excluir também as outras parcelas em aberto deste lançamento</label>{% endif %}
+ </div>
+</form>
+{% endif %}
+{% endblock %}

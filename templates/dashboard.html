@@ -52,6 +52,39 @@
  </div>
 </section>
 
+{% macro lista_contas(pc) %}{% set T = pc.T %}
+ {% if pc.abertas %}<div class="tbl-wrap" style="max-height:340px;overflow:auto"><table class="tbl compacta"><tbody>
+ {% for d in pc.abertas %}
+ <tr><td>{% if pode_editar() and d.origem == 'conta' %}<a class="forte" href="{{ url_for('conta_editar', cid=d.id, voltar='/#financeiro') }}">{{ d.titulo }}</a>{% elif d.origem == 'contrato' %}<a class="forte" href="{{ url_for('edital_ver', eid=d.edital_id) }}#recebimentos">{{ d.titulo }}</a>{% else %}<b>{{ d.titulo }}</b>{% endif %}<span class="sub">{{ d.fornecedor or '—' }}{% if d.edital_numero %} · {{ d.edital_numero }}{% endif %}</span></td>
+  <td class="nowrap">{{ d.vencimento|data }}<span class="sub"><span class="badge {{ d.tom }}" style="margin-top:3px">{{ d.rotulo }}</span></span></td>
+  <td class="num">{{ d.valor_aberto|brl }}</td>
+  {% if pode_editar() %}<td class="acao">{% set voltar = '/#financeiro' %}{% set dash = true %}{% include "_conta_acoes.html" %}</td>{% endif %}</tr>
+ {% endfor %}</tbody></table></div>
+ {% else %}<div class="empty" style="padding:22px"><i class="bi bi-emoji-smile"></i>Nada {{ 'a pagar' if T.tipo == 'pagar' else 'a receber' }} vencido ou nos próximos {{ pc.dias }} dias.</div>{% endif %}
+{% endmacro %}
+<section class="card" id="financeiro">
+ <div class="card-head"><h2><i class="bi bi-wallet2"></i> Financeiro · contas a pagar e a receber</h2>
+  <span class="btns"><a href="{{ url_for('contas', tipo='pagar', situacao='Em aberto') }}" class="btn btn-sm">A pagar <i class="bi bi-arrow-right"></i></a><a href="{{ url_for('contas', tipo='receber', situacao='Em aberto') }}" class="btn btn-sm">A receber <i class="bi bi-arrow-right"></i></a></span></div>
+ <div class="card-body" style="padding-bottom:0">
+  <div class="kpis" style="margin-bottom:16px">
+   <a class="kpi tone-danger {{ 'neg' if fin.pagar.vencidas }}" href="{{ url_for('contas', tipo='pagar', situacao='Vencidas') }}" style="text-decoration:none;color:inherit"><div class="rot">A pagar vencido</div><div class="val">{{ fin.pagar.valor_vencido|brl }}</div><div class="sub">{{ fin.pagar.vencidas|length }} conta(s)</div></a>
+   <div class="kpi tone-warn"><div class="rot">A pagar · {{ fin.pagar.dias }} dias</div><div class="val">{{ fin.pagar.valor_proximas|brl }}</div><div class="sub">{{ fin.pagar.proximas|length }} conta(s), {{ fin.pagar.hoje|length }} hoje</div></div>
+   <a class="kpi tone-signal {{ 'neg' if fin.receber.vencidas }}" href="{{ url_for('contas', tipo='receber', situacao='Vencidas') }}" style="text-decoration:none;color:inherit"><div class="rot">A receber atrasado</div><div class="val">{{ fin.receber.valor_vencido|brl }}</div><div class="sub">{{ fin.receber.vencidas|length }} conta(s)</div></a>
+   <div class="kpi tone-ok"><div class="rot">A receber · {{ fin.receber.dias }} dias</div><div class="val">{{ fin.receber.valor_proximas|brl }}</div><div class="sub">{{ fin.receber.proximas|length }} conta(s), {{ fin.receber.hoje|length }} hoje</div></div>
+  </div>
+ </div>
+ <div class="split duas" style="border-top:1px solid var(--line-2)">
+  <div>
+   <div class="ck-grupo" style="border-top:0"><i class="bi bi-box-arrow-up-right"></i> A pagar · vencidas e próximos {{ fin.pagar.dias }} dias ({{ fin.pagar.abertas|length }})</div>
+   {{ lista_contas(fin.pagar) }}
+  </div>
+  <div class="lado" style="padding:0">
+   <div class="ck-grupo" style="border-top:0"><i class="bi bi-box-arrow-in-down-left"></i> A receber · atrasadas e próximos {{ fin.receber.dias }} dias ({{ fin.receber.abertas|length }})</div>
+   {{ lista_contas(fin.receber) }}
+  </div>
+ </div>
+</section>
+
 <div class="pendencias">
  {% call pend('Ordens de serviço atrasadas ou nos próximos 2 dias', 'bi-clipboard2-check', al.ordens, 'Nenhuma OS pendente para os próximos dias.', 'quente' if al.ordens|selectattr('data_programada', 'lt', hoje)|list else 'morno') %}
   {% for o in al.ordens %}<li><a href="{{ url_for('os_ver', os_id=o.id) }}">OS {{ o.numero }} · {{ o.tipo }}</a><div class="det">{{ o.edital_numero }} — {{ o.orgao }}{% if o.local %} · {{ o.local }}{% endif %} · <b class="{{ 't-danger' if o.data_programada < hoje }}">{{ o.data_programada|data }}{% if o.hora_programada %} {{ o.hora_programada }}{% endif %}</b></div></li>{% endfor %}

@@ -646,6 +646,20 @@ def xlsx_pedidos(linhas):
     return _salvar(wb)
 
 
+def xlsx_contas(linhas, T):
+    wb = Workbook()
+    _aba(wb, T["titulo"], ["Vencimento", "Descrição", "Parcela", T["pessoa_curta"], "Categoria", "Documento",
+                           "Contrato", "Empresa", "Valor", "Em aberto", "Situação", T["data_q"], T["valor_q"],
+                           "Forma de pagamento", "Código de barras / PIX", "Observações"],
+         [(_dt(d["vencimento"]), d["descricao"], f"{d['parcela']}/{d['total_parcelas']}" if d["total_parcelas"] else None,
+           d["fornecedor"], d["categoria"], d["documento"], d["edital_numero"], d["empresa"], d["valor"], d["valor_aberto"],
+           d["rotulo"], _dt(d["data_pagamento"]), d["valor_pago"], d["forma_pagamento"], d["codigo_barras"],
+           d["observacoes"]) for d in linhas],
+         {"Vencimento": "DD/MM/YYYY", T["data_q"]: "DD/MM/YYYY", "Valor": FMT_BRL, "Em aberto": FMT_BRL,
+          T["valor_q"]: FMT_BRL}, primeira=True)
+    return _salvar(wb)
+
+
 def xlsx_os(lista):
     wb = Workbook()
     _aba(wb, "Ordens de serviço", ["OS", "Tipo", "Situação", "Edital", "Órgão", "Empenho/OF", "Programada", "Executada",

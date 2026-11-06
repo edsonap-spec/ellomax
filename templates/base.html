@@ -25,6 +25,9 @@
    <div class="nav-label">Contratos</div>
    <a href="{{ url_for('editais') }}" class="{{ 'ativo' if ep.startswith('edital') or ep in ('filho_novo','filho_editar','empenho_novo','empenho_editar') }}"><i class="bi bi-file-earmark-text"></i> Editais e contratos</a>
    <a href="{{ url_for('pedidos') }}" class="{{ 'ativo' if ep.startswith('pedidos') }}"><i class="bi bi-cart-check"></i> Pedidos de compra</a>
+   <div class="nav-label">Financeiro</div>
+   <a href="{{ url_for('contas', tipo='pagar') }}" class="{{ 'ativo' if g.nav_conta == 'pagar' }}"><i class="bi bi-wallet2"></i> Contas a pagar{% if contas_pendentes and contas_pendentes.pagar %}<span class="cont" title="Vencidas ou vencendo hoje">{{ contas_pendentes.pagar }}</span>{% endif %}</a>
+   <a href="{{ url_for('contas', tipo='receber') }}" class="{{ 'ativo' if g.nav_conta == 'receber' }}"><i class="bi bi-cash-coin"></i> Contas a receber{% if contas_pendentes and contas_pendentes.receber %}<span class="cont" title="Atrasadas ou vencendo hoje">{{ contas_pendentes.receber }}</span>{% endif %}</a>
    <div class="nav-label">Operação</div>
    <a href="{{ url_for('os_lista') }}" class="{{ 'ativo' if ep.startswith('os_') and ep != 'os_relatorio' }}"><i class="bi bi-clipboard2-check"></i> Ordens de serviço{% if os_pendentes %}<span class="cont" title="Atrasadas ou para hoje">{{ os_pendentes }}</span>{% endif %}</a>
    <a href="{{ url_for('ativos') }}" class="{{ 'ativo' if ep.startswith('ativo') or ep.startswith('alocacao') }}"><i class="bi bi-boxes"></i> Estoque de ativos</a>

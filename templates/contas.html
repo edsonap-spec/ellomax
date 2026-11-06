@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ T.titulo }}{% endblock %}
+{% block content %}
+{% set qs = f|dictsort|selectattr(1)|list %}
+{% set voltar = request.full_path %}
+<div class="page-head">
+ <div><div class="eyebrow">Financeiro</div><h1>{{ T.titulo }}</h1><div class="sub">{{ T.sub }}</div></div>
+ <div class="acoes">
+  <a href="{{ url_for('contas_xlsx', tipo=T.tipo, **f) }}" class="btn"><i class="bi bi-file-earmark-spreadsheet"></i> Excel</a>
+  {% if pode_editar() %}<a href="{{ url_for('conta_nova', tipo=T.tipo, voltar=voltar) }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> {{ T.nova }}</a>{% endif %}
+ </div>
+</div>
+
+<div class="kpis">
+ <a class="kpi tone-danger {{ 'neg' if pc.vencidas }}" href="{{ url_for('contas', tipo=T.tipo, situacao='Vencidas') }}" style="text-decoration:none;color:inherit"><div class="rot">{{ T.vencidas }}</div><div class="val">{{ pc.valor_vencido|brl }}</div><div class="sub">{{ pc.vencidas|length }} conta(s) em atraso</div></a>
+ <a class="kpi tone-signal" href="{{ url_for('contas', tipo=T.tipo, situacao='Vencem hoje') }}" style="text-decoration:none;color:inherit"><div class="rot">Vencem hoje</div><div class="val">{{ pc.valor_hoje|brl }}</div><div class="sub">{{ pc.hoje|length }} conta(s)</div></a>
+ <div class="kpi tone-info"><div class="rot">Próximos {{ pc.dias }} dias</div><div class="val">{{ pc.valor_proximas|brl }}</div><div class="sub">{{ pc.proximas|length }} conta(s), incluindo hoje</div></div>
+ <div class="kpi tone-ok"><div class="rot">{{ T.quitadas }} neste mês</div><div class="val">{{ pc.quitado_mes|brl }}</div><div class="sub">{{ pc.qtd_quitado_mes }} baixa(s)</div></div>
+</div>
+
+<form class="filtros no-print">
+ <input class="grow" type="search" name="q" value="{{ f.q }}" placeholder="Descrição, {{ T.pessoa_curta|lower }}, nº do documento ou contrato">
+ <select name="situacao" style="width:auto"><option value="">Todas as situações</option><option {% if f.situacao == 'Em aberto' %}selected{% endif %}>Em aberto</option>{% for s in SITUACOES %}<option value="{{ s }}" {% if s == f.situacao %}selected{% endif %}>{{ T.quitadas if s == 'Quitadas' else (T.vencidas if s == 'Vencidas' else s) }}</option>{% endfor %}</select>
+ <select name="categoria" style="width:auto;max-width:240px"><option value="">Todas as categorias</option>{% for c in CATEGORIAS %}<option {% if c == f.categoria %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+ <select name="edital_id" style="width:auto;max-width:220px"><option value="">Todos os contratos</option>{% for e in editais %}<option value="{{ e.id }}" {% if e.id|string == f.edital_id %}selected{% endif %}>{{ e.numero }} — {{ e.orgao }}</option>{% endfor %}</select>
+ <input type="date" name="de" value="{{ f.de }}" title="Vencimento de" style="width:auto">
+ <input type="date" name="ate" value="{{ f.ate }}" title="Vencimento até" style="width:auto">
+ <button class="btn"><i class="bi bi-funnel"></i> Filtrar</button>
+ {% if qs %}<a href="{{ url_for('contas', tipo=T.tipo) }}" class="btn btn-ghost">Limpar</a>{% endif %}
+</form>
+
+<div class="card"><div class="tbl-wrap"><table class="tbl">
+ <thead><tr><th>Vencimento</th><th>Conta</th><th>Contrato</th><th class="num">Valor</th><th>Situação</th>{% if pode_editar() %}<th class="no-print"></th>{% endif %}</tr></thead>
+ <tbody>
+ {% for d in linhas %}
+ <tr><td class="nowrap"><b>{{ d.vencimento|data if d.vencimento else '—' }}</b></td>
+  <td>{% if pode_editar() and d.origem == 'conta' %}<a class="forte" href="{{ url_for('conta_editar', cid=d.id, voltar=voltar) }}">{{ d.titulo }}</a>{% else %}<b>{{ d.titulo }}</b>{% endif %}
+   <span class="sub">{{ d.fornecedor or ('Sem ' ~ T.pessoa_curta|lower) }}{% if d.categoria %} · {{ d.categoria }}{% endif %}{% if d.documento %} · {{ 'NF' if d.origem == 'contrato' else 'Doc.' }} {{ d.documento }}{% endif %}</span></td>
+  <td>{% if d.edital_id %}<a href="{{ url_for('edital_ver', eid=d.edital_id) }}#{{ 'recebimentos' if d.origem == 'contrato' else 'gastos' }}">{{ d.edital_numero }}</a>{% if d.origem == 'conta' %}<span class="sub">{{ d.orgao|truncate(30) }}</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td class="num">{{ d.valor|brl }}{% if d.data_pagamento and (d.valor_pago or 0)|round(2) != d.valor|round(2) %}<span class="sub">{{ T.quitada|lower }} {{ d.valor_pago|brl }}</span>{% elif not d.data_pagamento and d.valor_aberto|round(2) != d.valor|round(2) %}<span class="sub">falta {{ d.valor_aberto|brl }}</span>{% endif %}</td>
+  <td><span class="badge {{ d.tom }}">{{ d.rotulo }}</span>{% if d.data_pagamento %}<span class="sub">em {{ d.data_pagamento|data }}{% if d.forma_pagamento %} · {{ d.forma_pagamento }}{% endif %}</span>{% endif %}</td>
+  {% if pode_editar() %}<td class="acao no-print"><span class="btns">{% set dash = false %}{% include "_conta_acoes.html" %}</span></td>{% endif %}</tr>
+ {% else %}<tr><td colspan="6"><div class="empty"><i class="bi {{ T.icone }}"></i>Nenhuma conta {{ 'no filtro escolhido' if qs else 'lançada ainda. Use "' ~ T.nova ~ '".' }}</div></td></tr>{% endfor %}
+ </tbody>
+ {% if linhas %}<tfoot><tr><td colspan="3">{{ tot.qtd }} conta(s) · em aberto {{ tot.aberto|brl }} · {{ T.quitadas|lower }} {{ tot.quitado|brl }}</td><td class="num">{{ tot.valor|brl }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
+</table></div></div>
+{% endblock %}
