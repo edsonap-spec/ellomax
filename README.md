@@ -22,6 +22,11 @@ Os dados ficam no arquivo `licitacoes.db` (SQLite) e os anexos na pasta `uploads
 
 ## O que tem
 
+- **Importar editais ganhos:** em *Editais e contratos → Importar editais* (administrador), o sistema mostra a prévia
+  dos editais de `dados/editais_ganhos.json` e grava só os novos. Não repete edital com o mesmo **nº, cidade e valor
+  total** de um já cadastrado. Também aceita outro JSON no mesmo formato, ou pelo terminal:
+  `python app.py importar-editais [arquivo.json] [--simular]`.
+
 - **Financeiro (contas a pagar e a receber):** vencimento, valor, fornecedor/cliente, categoria, documento, linha
   digitável ou PIX, forma de pagamento e anexo do boleto/comprovante. Lançamento único, **parcelado** (divide o valor)
   ou **recorrente mensal** (repete o valor). Baixa com um clique (ou com juros/desconto na edição) e estorno. Conta a

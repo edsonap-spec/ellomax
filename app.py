@@ -4,6 +4,7 @@ Executar:  pip install -r requirements.txt  &&  python app.py
 Acesso inicial: admin@local / admin123 (troque no primeiro acesso).
 Enviar alertas por e-mail manualmente (ex.: agendador do Windows / cron):  python app.py enviar-alertas
 """
+import json
 import os
 import secrets
 import shutil
@@ -21,6 +22,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 import alertas
+import importacao
 import relatorios
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -432,6 +434,8 @@ def init_db():
     _add_col(db, "usuarios", "empresa_id", "INTEGER REFERENCES empresas(id)")
     _add_col(db, "editais", "empresa_id", "INTEGER REFERENCES empresas(id)")
     _add_col(db, "editais", "aliquota_impostos", "REAL")
+    _add_col(db, "editais", "cidade", "TEXT")
+    _add_col(db, "editais", "uf", "TEXT")
     _add_col(db, "recebimentos", "retencoes", "REAL NOT NULL DEFAULT 0")
     # pedidos de compra: local, solicitante, distância e frete
     _add_col(db, "empenhos", "solicitante", "TEXT")
@@ -821,6 +825,8 @@ def campos_edital():
         ("orgao", "Órgão / Entidade", "text", True, None, 6),
         ("cnpj_orgao", "CNPJ do órgão", "text", False, None, 3),
         ("uasg", "UASG / Código", "text", False, None, 3),
+        ("cidade", "Cidade", "text", False, None, 4),
+        ("uf", "UF", "text", False, None, 2),
         ("numero", "Nº do edital", "text", True, None, 3),
         ("processo", "Nº do processo", "text", False, None, 3),
         ("numero_contrato", "Nº do contrato / ata", "text", False, None, 3),
@@ -964,8 +970,9 @@ def consultar_editais():
     st = request.args.get("status", "")
     sql, args = "SELECT e.*, emp.razao_social AS empresa FROM editais e LEFT JOIN empresas emp ON emp.id=e.empresa_id WHERE 1=1", []
     if q:
-        sql += " AND (e.orgao LIKE ? OR e.numero LIKE ? OR e.objeto LIKE ? OR e.processo LIKE ? OR e.numero_contrato LIKE ?)"
-        args += [f"%{q}%"] * 5
+        sql += (" AND (e.orgao LIKE ? OR e.numero LIKE ? OR e.objeto LIKE ? OR e.processo LIKE ?"
+                " OR e.numero_contrato LIKE ? OR e.cidade LIKE ?)")
+        args += [f"%{q}%"] * 6
     if st:
         sql += " AND e.status=?"
         args.append(st)
@@ -990,6 +997,40 @@ def editais_xlsx():
     _, _, linhas = consultar_editais()
     return send_file(relatorios.xlsx_editais(linhas), as_attachment=True,
                      download_name=f"editais_{date.today():%Y%m%d}.xlsx")
+
+
+@app.route("/editais/importar", methods=["GET", "POST"])
+@admin_required
+def editais_importar():
+    """Importa editais ganhos de um JSON (o do sistema em dados/ ou um enviado), sem repetir os já cadastrados."""
+    db = get_db()
+    enviado = request.files.get("arquivo")
+    origem = "arquivo do sistema (dados/editais_ganhos.json)"
+    try:
+        if enviado and enviado.filename:
+            dados = importacao.validar(json.loads(enviado.read().decode("utf-8-sig")))
+            origem = enviado.filename
+        else:
+            dados = importacao.carregar()
+    except (OSError, ValueError) as x:
+        flash(f"Não foi possível ler o arquivo: {x}", "danger")
+        return redirect(url_for("editais"))
+    if request.method == "POST" and request.form.get("acao") == "importar":
+        emp = empresa_destino_import(db, dados)
+        criados, _ = importacao.importar(db, dados, emp, g.user["id"])
+        for eid in criados:
+            audit("importou", "edital", eid, origem)
+        db.commit()
+        flash(f"{len(criados)} edital(is) importado(s). Os já cadastrados foram ignorados.", "success")
+        return redirect(url_for("editais"))
+    linhas = importacao.analisar(db, dados)
+    emp = db.execute("SELECT razao_social FROM empresas WHERE id=?", (empresa_destino_import(db, dados),)).fetchone()
+    return render_template("editais_importar.html", linhas=linhas, origem=origem, empresa=emp["razao_social"],
+                           novos=sum(1 for li in linhas if li["situacao"] == "novo"), padrao=not (enviado and enviado.filename))
+
+
+def empresa_destino_import(db, dados):
+    return importacao.empresa_destino(db, dados, empresa_atual())
 
 
 @app.route("/editais/novo", methods=["GET", "POST"])
@@ -3033,6 +3074,21 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "enviar-alertas":
         conn = conectar()
         print(f"Alertas enviados: {alertas.enviar_alertas(conn, forcar=True)} pendência(s).")
+        sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "importar-editais":
+        # python app.py importar-editais [arquivo.json] [--simular]
+        args_ = [a for a in sys.argv[2:] if not a.startswith("--")]
+        conn = conectar()
+        dados_ = importacao.carregar(args_[0] if args_ else None)
+        if "--simular" in sys.argv:
+            linhas_ = importacao.analisar(conn, dados_)
+        else:
+            criados_, linhas_ = importacao.importar(conn, dados_, importacao.empresa_destino(conn, dados_))
+            conn.commit()
+        for li in linhas_:
+            e_ = li["edital"]
+            print(f"[{li['situacao']:8}] {e_['numero']:>10} {e_.get('cidade') or '':<26} R$ {li['total']:>12,.2f}  {li['aviso'] or ''}")
+        print(f"Novos: {sum(1 for li in linhas_ if li['situacao'] == 'novo')}" + (" (simulação, nada gravado)" if "--simular" in sys.argv else " (gravados)"))
         sys.exit(0)
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG") == "1"
