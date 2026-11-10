@@ -4,10 +4,11 @@
 <div class="page-head">
  <div><div class="eyebrow">Contratos</div><h1>Editais ganhos</h1></div>
  <div class="acoes"><a href="{{ url_for('editais_xlsx', q=q, status=st) }}" class="btn"><i class="bi bi-file-earmark-spreadsheet"></i> Exportar Excel</a>
+ {% if g.user.perfil == 'admin' %}<a href="{{ url_for('editais_importar') }}" class="btn"><i class="bi bi-box-arrow-in-down"></i> Importar editais</a>{% endif %}
  {% if pode_editar() %}<a href="{{ url_for('edital_novo') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Novo edital</a>{% endif %}</div>
 </div>
 <form class="filtros no-print">
- <input class="grow" type="search" name="q" value="{{ q }}" placeholder="Buscar por órgão, nº do edital, processo, contrato ou objeto">
+ <input class="grow" type="search" name="q" value="{{ q }}" placeholder="Buscar por órgão, cidade, nº do edital, processo, contrato ou objeto">
  <select name="status" style="width:auto"><option value="">Todas as situações</option>{% for s in STATUS %}<option {% if s == st %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
  <button class="btn"><i class="bi bi-funnel"></i> Filtrar</button>
 </form>
@@ -15,7 +16,7 @@
  <thead><tr><th>Edital</th><th>Órgão</th><th>Modalidade</th><th>Objeto</th><th>Vigência</th><th>Situação</th><th class="num">Contratado</th><th class="num">Saldo a receber</th></tr></thead>
  <tbody>
  {% for e, r in linhas %}
- <tr><td><a class="forte" href="{{ url_for('edital_ver', eid=e.id) }}">{{ e.numero }}</a><span class="sub">{{ e.empresa or '' }}</span></td><td>{{ e.orgao }}</td><td><small>{{ e.modalidade or '' }}</small></td>
+ <tr><td><a class="forte" href="{{ url_for('edital_ver', eid=e.id) }}">{{ e.numero }}</a><span class="sub">{{ e.empresa or '' }}</span></td><td>{{ e.orgao }}{% if e.cidade %}<span class="sub">{{ e.cidade }}{% if e.uf %}/{{ e.uf }}{% endif %}</span>{% endif %}</td><td><small>{{ e.modalidade or '' }}</small></td>
   <td><small>{{ e.objeto|truncate(80) }}</small></td><td class="nowrap"><small>{{ e.vigencia_inicio|data }} a {{ e.vigencia_fim|data }}</small></td>
   <td><span class="badge {{ badge_status(e.status) }}">{{ e.status }}</span></td>
   <td class="num">{{ r.contratado|brl }}</td><td class="num">{{ r.a_receber|brl }}</td></tr>

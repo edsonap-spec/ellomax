@@ -1,0 +1,218 @@
+{
+  "origem": "Pasta 'editais ganhos ellomax' (Google Drive) — editais, resumos, propostas readequadas, atas, NFS-e e atestado. Extraído em 10/11/2026.",
+  "empresa_cnpj": "54.171.263/0001-92",
+  "editais": [
+    {
+      "orgao": "Prefeitura Municipal de Araçariguama",
+      "cidade": "Araçariguama", "uf": "SP",
+      "cnpj_orgao": "58.993.577/0001-21",
+      "modalidade": "Pregão Eletrônico",
+      "numero": "09/2026",
+      "processo": "46/2026",
+      "numero_contrato": "ARP 42/2026",
+      "objeto": "Registro de preços para locação com prestação de serviços de palco, iluminação e pavilhão modulado, para dar suporte aos eventos municipais, pelo período de 12 meses (Lote 01 - Palco sem cobertura).",
+      "data_abertura": "2026-07-15",
+      "data_homologacao": "2026-08-24",
+      "vigencia_inicio": "2026-08-24",
+      "vigencia_fim": "2027-08-24",
+      "prazo_entrega": "OS com 5 a 10 dias de antecedência; montagem 24 h antes do evento",
+      "status": "Contrato assinado",
+      "link_edital": "BBMNET",
+      "observacoes": "Ata de Registro de Preços nº 42/2026 assinada em 24/08/2026, validade 12 meses. Pagamento em até 28 dias.",
+      "arquivos": ["Edital (6).pdf", "Resumo do edital (6).pdf", "Proposta_assinado (1).pdf", "Ata de registro de preços n° 42-2026 - Ellomax.pdf"],
+      "itens": [
+        {"lote": "01", "numero_item": "01", "descricao": "Locação de palco 8 m de frente x 6 m de fundo, sem cobertura, altura regulável entre 60 cm e 1,20 m", "unidade": "diária", "quantidade": 35, "valor_unitario": 6000.00},
+        {"lote": "01", "numero_item": "02", "descricao": "Locação de palco 12 m de frente x 8 m de fundo, sem cobertura, altura regulável entre 60 cm e 1,20 m", "unidade": "diária", "quantidade": 20, "valor_unitario": 9000.00},
+        {"lote": "01", "numero_item": "03", "descricao": "Locação de palco 20 m de frente x 12 m de fundo, sem cobertura, altura regulável entre 60 cm e 1,20 m", "unidade": "diária", "quantidade": 20, "valor_unitario": 14550.00}
+      ]
+    },
+    {
+      "orgao": "Prefeitura Municipal de São Miguel Arcanjo",
+      "cidade": "São Miguel Arcanjo", "uf": "SP",
+      "cnpj_orgao": "46.634.333/0001-73",
+      "modalidade": "Pregão Eletrônico",
+      "numero": "20/2026",
+      "processo": "5867/2026 (Edital nº 130/2026)",
+      "numero_contrato": "ARP 11/2026",
+      "objeto": "Registro de preços, por 12 meses, para serviços de infraestrutura para eventos: locação, transporte, montagem, manutenção, operação e desmontagem de estruturas temporárias para eventos das Secretarias Municipais.",
+      "data_abertura": "2026-10-16",
+      "data_homologacao": "2026-10-21",
+      "vigencia_inicio": "2026-10-21",
+      "vigencia_fim": "2027-10-21",
+      "prazo_entrega": "OS com antecedência mínima de 5 dias úteis",
+      "status": "Contrato assinado",
+      "contato_orgao": "Gestora: Estefani Aparecida da Silva (Sec. de Turismo); fiscal: Ana Luiza Maia Barros",
+      "link_edital": "BBMNET",
+      "observacoes": "Ata de Registro de Preços nº 11/2026 assinada em 21/10/2026 (vigência 21/10/2026 a 21/10/2027).",
+      "arquivos": ["Edital (7).pdf", "Termo de Referência (1).pdf", "Resumo do edital (7).pdf", "Proposta e Declaracoes Arcanjo/", "ATA Nº 11-2026-2025 - P.E. Nº 20-2026 - ESTRUTURAS - ELLOMAX.pdf", "ATA_NBA_11-2026-2025_-_P.E._NBA_20-2026_-_ESTRUTURAS_-_ELLOMAX_assinado.pdf"],
+      "itens": [
+        {"numero_item": "03", "descricao": "Palco de praticáveis com cobertura 8 m x 6 m x 80 cm, em alumínio Q30, estrutura 8 m x 5 m para fixação de iluminação, piso carpetado", "unidade": "un", "quantidade": 20, "valor_unitario": 4449.90},
+        {"numero_item": "07", "descricao": "Grade de contenção 1,20 m de altura x 2,00 m de comprimento, tubo 1.1/4\", galvanizada", "unidade": "m", "quantidade": 4000, "valor_unitario": 9.10}
+      ]
+    },
+    {
+      "orgao": "Academia da Força Aérea - AFA (Comando da Aeronáutica)",
+      "cidade": "Pirassununga", "uf": "SP",
+      "cnpj_orgao": "00.394.429/0002-91",
+      "uasg": "120060",
+      "modalidade": "Pregão Eletrônico",
+      "numero": "117/2026",
+      "processo": "67510.007475/2026-95",
+      "numero_contrato": "ARP 00578/2026",
+      "objeto": "Registro de preços para contratação de serviços de instalação temporária de equipamentos e materiais (TR nº 133/2026) - Item 04 (exclusivo ME/EPP).",
+      "data_abertura": "2026-09-03",
+      "data_homologacao": "2026-10-14",
+      "vigencia_inicio": "2026-10-14",
+      "vigencia_fim": "2027-10-14",
+      "local_entrega": "AFA - Estrada de Aguaí, s/nº, Campo Fontenelle, Pirassununga/SP",
+      "status": "Contrato assinado",
+      "link_edital": "Compras.gov (nº 90072/2026)",
+      "observacoes": "Ata de Registro de Preços nº 00578/2026 assinada eletronicamente em 14/10/2026. A validade de 1 ano conta do dia útil seguinte à divulgação no PNCP: confira a data exata da vigência. Não admite adesão.",
+      "arquivos": ["Edital.pdf", "ANEXOS+DO+EDITAL.pdf", "TERMO+DE+REFERENCIA.pdf", "ANEXOS+DO+TERMO+DE+REFERENCIA.pdf", "Resumo do edital.pdf", "Proposta e Habilitacao/", "ATA_00578_2026_03112026_143950  ELLOMAX SERVICOS LTDA.pdf"],
+      "itens": [
+        {"numero_item": "04", "descricao": "Serviço de instalação temporária de divisores de fluxo / organizador de filas (pedestal prata com fita retrátil preta de 2,00 m), com transporte, montagem e desmontagem", "unidade": "un", "quantidade": 130, "valor_unitario": 19.30}
+      ]
+    },
+    {
+      "orgao": "SEBRAE-SP - Serviço de Apoio às Micro e Pequenas Empresas de São Paulo (Regional Ourinhos)",
+      "cidade": "Ribeirão do Sul", "uf": "SP",
+      "cnpj_orgao": "43.728.245/0041-30",
+      "uasg": "930452",
+      "modalidade": "Dispensa Eletrônica",
+      "numero": "213/2026",
+      "processo": "01/001429/2026",
+      "numero_contrato": "NFS-e 6",
+      "objeto": "Fornecimento de estrutura para o evento 17ª Semana de Arte e Cultura de Ribeirão do Sul/SP (tendas, faixas, cadeiras e mesas).",
+      "data_abertura": "2026-09-03",
+      "vigencia_inicio": "2026-09-09",
+      "vigencia_fim": "2026-09-20",
+      "local_entrega": "Praça Ferdinando Silvestre, s/n - Centro, Ribeirão do Sul/SP",
+      "status": "Encerrado",
+      "contato_orgao": "André Luís Lopes (gestor da contratação) - andrello@sebraesp.com.br",
+      "link_edital": "Compras.gov",
+      "observacoes": "Serviço executado (montagem 16/09, desmontagem 20/09/2026). Atestado de capacidade técnica emitido em 22/09/2026 informa faturado e quitado pela NFS-e nº 6 (na pasta também há a NFS-e nº 5, de 21/09/2026, no mesmo valor).",
+      "entregue": true,
+      "arquivos": ["Edital (1).pdf", "Termo de Referência.pdf", "Resumo do edital (1).pdf", "Proposta e Habilitacao (1)/", "Proposta e Habilitacao (4)/", "NFSE 5.pdf", "Atestado_Capacidade_Tecnica_ELLOMAX.pdf [manifesto].pdf"],
+      "itens": [
+        {"numero_item": "01", "descricao": "Tenda 3 x 3 m para exposição de produtos alimentícios, cobertura piramidal em lona branca, fechamento em gradil e balcão frontal em MDF", "unidade": "SV", "quantidade": 10, "valor_unitario": 400.00},
+        {"numero_item": "02", "descricao": "Confecção e instalação de faixa em lona vinílica (testeira) com identidade visual do Sebrae", "unidade": "SV", "quantidade": 10, "valor_unitario": 300.00},
+        {"numero_item": "03", "descricao": "Tenda piramidal 10 x 10 m, cobertura em lona branca, pé-direito mínimo 2,50 m, com montagem e desmontagem", "unidade": "SV", "quantidade": 6, "valor_unitario": 2500.00},
+        {"numero_item": "04", "descricao": "Locação de cadeira plástica branca sem braços, empilhável", "unidade": "SV", "quantidade": 240, "valor_unitario": 10.00},
+        {"numero_item": "05", "descricao": "Locação de mesa quadrada plástica branca 70 x 70 cm", "unidade": "SV", "quantidade": 60, "valor_unitario": 9.98}
+      ]
+    },
+    {
+      "orgao": "Prefeitura Municipal de Monte Alto",
+      "cidade": "Monte Alto", "uf": "SP",
+      "cnpj_orgao": "51.816.247/0001-11",
+      "uasg": "986727",
+      "modalidade": "Pregão Eletrônico",
+      "numero": "131/2026",
+      "processo": "SA/DL 223/2026 (Edital nº 153/2026, SEI 2685/2026)",
+      "objeto": "Registro de preços para futura e eventual prestação de serviços de locação de tablados e pisos praticáveis sem cobertura.",
+      "data_abertura": "2026-10-06",
+      "status": "Homologado",
+      "contato_orgao": "licita@montealto.sp.gov.br",
+      "link_edital": "Compras.gov (Pregão 986727-71/2026)",
+      "observacoes": "Na pasta há duas propostas readequadas: a de 06/10/2026 (itens 05 e 06, R$ 50.000,00) e a de 15/10/2026 (itens 05, 06 e 07, R$ 85.580,00). Foi importada a mais recente, que inclui a anterior.",
+      "arquivos": ["Edital (2).pdf", "Resumo do edital (2).pdf", "Proposta e Declaracoes/", "Proposta_e_declaracoes_-_03_itens_assinado.pdf", "Proposta_e_declaracoes_-_03_itens_assinado_assinado.pdf"],
+      "itens": [
+        {"numero_item": "05", "descricao": "Tablado 6 x 6 m", "unidade": "diária", "quantidade": 20, "valor_unitario": 1200.00},
+        {"numero_item": "06", "descricao": "Tablado 8 x 6 m", "unidade": "diária", "quantidade": 20, "valor_unitario": 1300.00},
+        {"numero_item": "07", "descricao": "Tablado 8 x 8 m", "unidade": "diária", "quantidade": 20, "valor_unitario": 1779.00}
+      ]
+    },
+    {
+      "orgao": "Prefeitura Municipal de Sarapuí",
+      "cidade": "Sarapuí", "uf": "SP",
+      "cnpj_orgao": "46.634.341/0001-10",
+      "modalidade": "Pregão Eletrônico",
+      "numero": "35/2026",
+      "processo": "5277/2026",
+      "objeto": "Registro de preços para locação de banheiros químicos móveis, convencionais e adaptados para PCD, com transporte, instalação, manutenção, higienização e retirada.",
+      "data_abertura": "2026-07-07",
+      "status": "Homologado",
+      "link_edital": "BLL Compras",
+      "observacoes": "Vigência da ata: 1 ano (data de assinatura não encontrada na pasta).",
+      "arquivos": ["Edital (3).pdf", "Resumo do edital (3).pdf", "Proposta e Habilitacao (2)/"],
+      "itens": [
+        {"numero_item": "01", "descricao": "Locação, instalação e retirada de banheiros químicos (masc./fem.) - locação de até 4 unidades", "unidade": "un", "quantidade": 80, "valor_unitario": 95.45},
+        {"numero_item": "02", "descricao": "Locação, instalação e retirada de banheiros químicos (masc./fem.) - locação de 5 a 10 unidades", "unidade": "un", "quantidade": 80, "valor_unitario": 95.45},
+        {"numero_item": "03", "descricao": "Locação, instalação e retirada de banheiros químicos (masc./fem.) - locação de 11 a 20 unidades", "unidade": "un", "quantidade": 80, "valor_unitario": 95.45},
+        {"numero_item": "04", "descricao": "Locação, instalação e retirada de banheiros químicos (masc./fem.) - locação de 21 a 30 unidades", "unidade": "un", "quantidade": 150, "valor_unitario": 95.45},
+        {"numero_item": "05", "descricao": "Locação, instalação e retirada de banheiros químicos PCD (acessível)", "unidade": "un", "quantidade": 50, "valor_unitario": 95.45}
+      ]
+    },
+    {
+      "orgao": "Prefeitura da Estância Turística de Salto",
+      "cidade": "Salto", "uf": "SP",
+      "cnpj_orgao": "46.634.507/0001-06",
+      "modalidade": "Pregão Eletrônico",
+      "numero": "38/2026",
+      "processo": "1441/2026",
+      "objeto": "Serviços de organização de eventos itinerantes para o projeto \"Atende Fácil nos Bairros\", durante os exercícios de 2026 e 2027 (Lote 01).",
+      "data_abertura": "2026-10-08",
+      "prazo_entrega": "Agendamento prévio pela Prefeitura com no mínimo 10 dias",
+      "status": "Homologado",
+      "link_edital": "BLL Compras",
+      "observacoes": "Valor global do Lote 01: R$ 119.000,00. Por evento: 3 tendas piramidais 10x10 m, 18 conjuntos de atendimento (mesa + 4 cadeiras), 26 mesas de apoio, 72 cadeiras extras, 2 palcos modulares 2,50x2,00 m, 2 banheiros químicos (1 padrão e 1 PCD), 28 gradis de 2 m, kit elétrico, equipe operacional e sistema de som. Vigência contratual de 12 meses a contar da assinatura.",
+      "arquivos": ["Edital (4).pdf", "Resumo do edital (4).pdf", "Proposta e Declaracoes (1)/", "Proposta e Habilitacao (3)/"],
+      "itens": [
+        {"lote": "01", "numero_item": "01", "descricao": "Lote 01 - Organização de eventos itinerantes \"Atende Fácil nos Bairros\" (tendas, mobiliário, palcos, banheiros químicos, gradis, elétrica, equipe e som) - valor global", "unidade": "lote", "quantidade": 1, "valor_unitario": 119000.00}
+      ]
+    },
+    {
+      "orgao": "Prefeitura Municipal de Ribeirão Preto",
+      "cidade": "Ribeirão Preto", "uf": "SP",
+      "uasg": "986969",
+      "modalidade": "Pregão Eletrônico",
+      "numero": "110/2026",
+      "processo": "122083/2026",
+      "objeto": "Registro de preços para serviços de locação de materiais/equipamentos e serviços de apoio aos eventos da Prefeitura de Ribeirão Preto (itens 32, 43 e 47).",
+      "status": "Homologado",
+      "link_edital": "Compras.gov (Pregão SRP 257/2026)",
+      "observacoes": "Vigência da ata: 12 meses, prorrogável (data de assinatura não encontrada na pasta).",
+      "arquivos": ["ed_retif_preg_eletr_110_2026_reg_locac_mater_equip_serv_eventos_gov.pdf", "Termo de Referência Retificado.pdf", "Resumo do edital (9).pdf", "Proposta itens 32 43 e 47.pdf"],
+      "itens": [
+        {"numero_item": "32", "descricao": "Locação de equipamentos de som para palestras", "unidade": "unidade/dia", "quantidade": 186, "valor_unitario": 829.28},
+        {"numero_item": "43", "descricao": "Locação de rádios comunicadores portáteis com bateria reserva e carregador", "unidade": "unidade/dia", "quantidade": 328, "valor_unitario": 82.49},
+        {"numero_item": "47", "descricao": "Serviços de bombeiro civil com disponibilização de extintores", "unidade": "diária 8h/homem", "quantidade": 164, "valor_unitario": 335.11}
+      ]
+    },
+    {
+      "orgao": "Prefeitura Municipal de Ribeirão Preto",
+      "cidade": "Ribeirão Preto", "uf": "SP",
+      "uasg": "986969",
+      "modalidade": "Dispensa Eletrônica",
+      "numero": "142/2026",
+      "processo": "PMRP 2026/152972 (Processo de Compra 366/2026)",
+      "objeto": "Locação de rádios comunicadores com headsets para o evento Ultimate Drift, de 14 a 16/08/2026, no Estádio Palma Travassos (item 3).",
+      "data_abertura": "2026-08-10",
+      "vigencia_inicio": "2026-08-14",
+      "vigencia_fim": "2026-08-16",
+      "local_entrega": "Estádio Palma Travassos, Ribeirão Preto/SP",
+      "status": "Homologado",
+      "link_edital": "Compras.gov",
+      "observacoes": "Pagamento em até 30 dias após a entrega. Vigência contratual de 60 dias a contar da OS.",
+      "arquivos": ["Edital (5).pdf", "Resumo do edital (5).pdf", "Proposta_assinado.pdf"],
+      "itens": [
+        {"numero_item": "3", "descricao": "Locação de rádios comunicadores com headsets", "unidade": "unidade", "quantidade": 45, "valor_unitario": 825.01}
+      ]
+    },
+    {
+      "orgao": "Prefeitura Municipal de Espírito Santo do Pinhal",
+      "cidade": "Espírito Santo do Pinhal", "uf": "SP",
+      "cnpj_orgao": "45.739.083/0001-73",
+      "modalidade": "Pregão Eletrônico",
+      "numero": "32/2026",
+      "processo": "6.413/2026",
+      "objeto": "Registro de preços, por 12 meses, para locação, transporte, montagem, desmontagem, manutenção e operação de estruturas temporárias para eventos (palcos, tendas, grades, sanitários químicos, som, iluminação, painéis de LED, geradores e afins).",
+      "data_abertura": "2026-09-28",
+      "status": "Homologado",
+      "link_edital": "BLL Compras",
+      "observacoes": "ATENÇÃO: a pasta tem o edital, o termo de referência e o resumo, mas nenhuma proposta ou ata da ELLOMAX. Os itens ganhos e os valores precisam ser lançados manualmente.",
+      "arquivos": ["Edital (8).pdf", "Termo de Referência (2).pdf", "Resumo do edital (8).pdf"],
+      "itens": []
+    }
+  ]
+}

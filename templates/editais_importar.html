@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Importar editais{% endblock %}
+{% block content %}
+<div class="page-head">
+ <div><div class="eyebrow">Contratos</div><h1>Importar editais ganhos</h1>
+  <div class="sub">Origem: {{ origem }} · Empresa: {{ empresa }}. Editais com o mesmo nº, cidade e valor de um já cadastrado são ignorados.</div></div>
+ <div class="acoes"><a href="{{ url_for('editais') }}" class="btn"><i class="bi bi-arrow-left"></i> Voltar</a></div>
+</div>
+<div class="card"><div class="tbl-wrap"><table class="tbl">
+ <thead><tr><th>Situação</th><th>Edital</th><th>Órgão / cidade</th><th>Modalidade</th><th class="num">Itens</th><th class="num">Valor</th><th>Observação</th></tr></thead>
+ <tbody>
+ {% for li in linhas %}{% set e = li.edital %}
+ <tr><td>{% if li.situacao == 'novo' %}<span class="badge b-ok">Novo</span>{% elif li.situacao == 'existe' %}<span class="badge">Já cadastrado</span>{% else %}<span class="badge b-warn">Repetido</span>{% endif %}</td>
+  <td>{% if li.existente_id %}<a class="forte" href="{{ url_for('edital_ver', eid=li.existente_id) }}">{{ e.numero }}</a>{% else %}<span class="forte">{{ e.numero }}</span>{% endif %}<span class="sub">{{ e.numero_contrato or '' }}</span></td>
+  <td>{{ e.orgao }}<span class="sub">{{ e.cidade or '' }}{% if e.uf %}/{{ e.uf }}{% endif %}</span></td>
+  <td><small>{{ e.modalidade or '' }}</small></td>
+  <td class="num">{{ (e.itens or [])|length }}</td><td class="num">{{ li.total|brl }}</td>
+  <td><small>{{ li.aviso or '' }}</small></td></tr>
+ {% else %}<tr><td colspan="7"><div class="empty"><i class="bi bi-inbox"></i>O arquivo não tem editais.</div></td></tr>{% endfor %}
+ </tbody></table></div></div>
+{% if padrao %}
+<form method="post" style="margin-top:16px">
+ <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+ <button class="btn btn-primary" name="acao" value="importar" {% if not novos %}disabled{% endif %}><i class="bi bi-box-arrow-in-down"></i> Importar {{ novos }} edital(is) novo(s)</button>
+</form>
+{% endif %}
+<div class="card" style="margin-top:16px"><div class="card-body">
+ <form method="post" enctype="multipart/form-data" class="form-grid" style="align-items:end">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <div class="field c-6"><label>Outro arquivo JSON (mesmo formato de dados/editais_ganhos.json)</label><input type="file" name="arquivo" accept=".json,application/json" required></div>
+  <div class="field c-6"><button class="btn" name="acao" value="previa"><i class="bi bi-eye"></i> Ver prévia</button>
+   <button class="btn btn-primary" name="acao" value="importar"><i class="bi bi-box-arrow-in-down"></i> Importar deste arquivo</button></div>
+ </form>
+</div></div>
+{% endblock %}
